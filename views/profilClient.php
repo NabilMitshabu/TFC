@@ -1,41 +1,48 @@
 <?php
 session_start();
+require_once '../includes/db_connect.php';
+require_once '../controllers/functions.php';
 
-// Rediriger si l'utilisateur n'est pas connecté
-if (!isset($_SESSION['user'])) {
-    header('Location: login.php');
-    exit();
+if (!isset($_SESSION['user']['id'])) {
+    header('Location: signInClient.php');
+    exit;
 }
 
-// Définir des valeurs par défaut pour les clés manquantes
-$user = $_SESSION['user'];
-$user['prenom'] = $user['prenom'] ?? '';
-$user['nom'] = $user['nom'] ?? '';
-$user['date_creation'] = $user['date_creation'] ?? date('Y-m-d'); // Date actuelle par défaut
-$user['photo'] = $user['photo'] ?? null;
-$user['email'] = $user['email'] ?? '';
-$user['telephone'] = $user['telephone'] ?? '';
-$user['commune'] = $user['commune'] ?? '';
-$user['ville'] = $user['ville'] ?? '';
+// Récupération des données utilisateur
+$user = getUserData($pdo, $_SESSION['user']['id']);
 
-// Réassigner les valeurs mises à jour
-$_SESSION['user'] = $user;
+// Vérification que l'utilisateur existe
+if (empty($user)) {
+    header('Location: signInClient.php');
+    exit;
+}
 
-// Données simulées (comme avant)
-$unreadNotifications = 3;
-$unreadMessages = 5;
-$currentRequests = 3;
-$completedServices = 12;
-$favoriteProviders = 5;
+
+
+// Génération du token CSRF
+$csrfToken = generateCsrfToken();
+
+// Récupération des statistiques
+$stats = getClientStats($pdo, $_SESSION['user']['id']);
+
+// Récupération des notifications
+$notifications = getNotifications($pdo, $_SESSION['user']['id']);
+
+// Comptage des notifications non lues
+$unreadNotifications = countUnreadNotifications($pdo, $_SESSION['user']['id']);
+
+// Récupération des messages récents
+$recentMessages = getRecentMessages($pdo, $_SESSION['user']['id']);
+
+// Comptage des messages non lus
+$unreadMessages = countUnreadMessages($pdo, $_SESSION['user']['id']);
+
+// Récupération des évaluations à faire
+$pendingEvaluations = getPendingEvaluations($pdo, $_SESSION['user']['id']);
+
+// Récupération des évaluations précédentes
+$pastEvaluations = getPastEvaluations($pdo, $_SESSION['user']['id']);
 ?>
-
-
-
-
-
-
-
-
 
 <!DOCTYPE html>
 <html lang="fr">
@@ -46,7 +53,7 @@ $favoriteProviders = 5;
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <meta name="csrf-token" content="<?= isset($_SESSION['csrf_token']) ? htmlspecialchars($_SESSION['csrf_token']) : '' ?>">
+    <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken) ?>">
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -103,7 +110,9 @@ $favoriteProviders = 5;
                     <?php endif; ?>
                 </button>
                 <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-medium">
-                    <?= substr(htmlspecialchars($_SESSION['user']['prenom']), 0, 1) . substr(htmlspecialchars($_SESSION['user']['nom']), 0, 1) ?>
+                    <?= isset($user['prenom'], $user['nom']) ? 
+                        htmlspecialchars(substr($user['prenom'], 0, 1) . substr($user['nom'], 0, 1)) : 
+                        '?' ?>
                 </div>
             </nav>
         </div>
@@ -111,57 +120,59 @@ $favoriteProviders = 5;
 
     <main class="min-h-screen flex pt-20 px-4">
         <!-- Sidebar -->
-        <aside class="w-64 bg-white shadow-sm rounded-lg h-fit sticky top-24 mr-6 hidden md:block">
-            <div class="p-6">
-                <div class="flex flex-col items-center mb-8">
-                    <div class="relative mb-4">
-                        <?php if (!empty($_SESSION['user']['photo'])): ?>
-                            <img src="<?= htmlspecialchars($_SESSION['user']['photo']) ?>" alt="Photo profil" class="rounded-full w-24 h-24 object-cover profile-shadow" />
-                        <?php else: ?>
-                            <img src="https://ui-avatars.com/api/?name=<?= urlencode(htmlspecialchars($_SESSION['user']['prenom']) . '+' . htmlspecialchars($_SESSION['user']['nom'])) ?>&background=2563eb&color=fff&size=128" alt="Photo profil" class="rounded-full w-24 h-24 object-cover profile-shadow" />
-                        <?php endif; ?>
-                    </div>
-                    <h2 class="text-xl font-semibold"><?= htmlspecialchars($_SESSION['user']['prenom'] . ' ' . $_SESSION['user']['nom']) ?></h2>
-                    <p class="text-gray-500 text-sm">Client depuis <?= date('M Y', strtotime($_SESSION['user']['date_creation'])) ?></p>
+    <aside class="w-64 bg-white shadow-sm rounded-lg h-fit sticky top-24 mr-6 hidden md:block">
+        <div class="p-6">
+            <div class="flex flex-col items-center mb-8">
+                <div class="relative mb-4">
+                    <?php if (!empty($user['photo_profil'])): ?>
+                        <img src="<?= htmlspecialchars($user['photo_profil']) ?>" alt="Photo profil" class="rounded-full w-24 h-24 object-cover profile-shadow" />
+                    <?php else: ?>
+                        <img src="https://ui-avatars.com/api/?name=<?= urlencode(htmlspecialchars($user['prenom'] ?? '') . '+' . htmlspecialchars($user['nom'] ?? '')) ?>&background=2563eb&color=fff&size=128" alt="Photo profil" class="rounded-full w-24 h-24 object-cover profile-shadow" />
+                    <?php endif; ?>
                 </div>
-
-                <nav class="space-y-1">
-                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg bg-blue-50 text-blue-600 font-medium menu-item">
-                        <span class="material-icons">dashboard</span>
-                        <span>Tableau de bord</span>
-                    </a>
-                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item">
-                        <span class="material-icons">person</span>
-                        <span>Mon profil</span>
-                    </a>
-                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item">
-                        <span class="material-icons">message</span>
-                        <span>Messages</span>
-                        <span class="ml-auto bg-blue-500 text-white text-xs px-2 py-1 rounded-full"><?= $unreadMessages ?></span>
-                    </a>
-                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item">
-                        <span class="material-icons">assignment</span>
-                        <span>Mes demandes</span>
-                    </a>
-                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item">
-                        <span class="material-icons">history</span>
-                        <span>Historique</span>
-                    </a>
-                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item">
-                        <span class="material-icons">favorite</span>
-                        <span>Favoris</span>
-                    </a>
-                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item">
-                        <span class="material-icons">payments</span>
-                        <span>Paiements</span>
-                    </a>
-                    <a href="../controllers/logout.php" class="flex items-center space-x-3 p-3 rounded-lg text-red-500 hover:bg-red-50 font-medium menu-item">
-                        <span class="material-icons">logout</span>
-                        <span>Déconnexion</span>
-                    </a>
-                </nav>
+                <h2 class="text-xl font-semibold"><?= htmlspecialchars(($user['prenom'] ?? '') . ' ' . htmlspecialchars($user['nom'] ?? '')) ?></h2>
+                <p class="text-gray-500 text-sm">Client depuis <?= !empty($user['date_creation']) ? date('M Y', strtotime($user['date_creation'])) : 'date inconnue' ?></p>
             </div>
-        </aside>
+
+            <nav class="space-y-1">
+                <a href="#" class="flex items-center space-x-3 p-3 rounded-lg bg-blue-50 text-blue-600 font-medium menu-item">
+                    <span class="material-icons">dashboard</span>
+                    <span>Tableau de bord</span>
+                </a>
+                <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item">
+                    <span class="material-icons">person</span>
+                    <span>Mon profil</span>
+                </a>
+                <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item">
+                    <span class="material-icons">message</span>
+                    <span>Messages</span>
+                    <?php if ($unreadMessages > 0): ?>
+                        <span class="ml-auto bg-blue-500 text-white text-xs px-2 py-1 rounded-full"><?= $unreadMessages ?></span>
+                    <?php endif; ?>
+                </a>
+                <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item">
+                    <span class="material-icons">assignment</span>
+                    <span>Mes demandes</span>
+                </a>
+                <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item">
+                    <span class="material-icons">history</span>
+                    <span>Historique</span>
+                </a>
+                <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item">
+                    <span class="material-icons">favorite</span>
+                    <span>Favoris</span>
+                </a>
+                <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item">
+                    <span class="material-icons">payments</span>
+                    <span>Paiements</span>
+                </a>
+                <a href="../controllers/logout.php" class="flex items-center space-x-3 p-3 rounded-lg text-red-500 hover:bg-red-50 font-medium menu-item">
+                    <span class="material-icons">logout</span>
+                    <span>Déconnexion</span>
+                </a>
+            </nav>
+        </div>
+    </aside>
 
         <!-- Main Content -->
         <div class="flex-1">
@@ -170,213 +181,202 @@ $favoriteProviders = 5;
                 <h2 class="text-2xl font-bold text-gray-800 mb-6">Tableau de bord</h2>
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <!-- Demande en cours -->
                     <div class="bg-blue-50 rounded-xl p-6 flex items-center">
                         <div class="bg-blue-100 text-blue-600 p-3 rounded-full mr-4">
                             <span class="material-icons">assignment</span>
                         </div>
                         <div>
                             <p class="text-sm text-gray-600">Demandes en cours</p>
-                            <p class="text-2xl font-bold"><?= $currentRequests ?></p>
+                            <p class="text-2xl font-bold"><?= $stats['current_requests'] ?></p>
                         </div>
                     </div>
+                    
+                    <!-- Services terminés -->
                     <div class="bg-green-50 rounded-xl p-6 flex items-center">
                         <div class="bg-green-100 text-green-600 p-3 rounded-full mr-4">
                             <span class="material-icons">check_circle</span>
                         </div>
                         <div>
                             <p class="text-sm text-gray-600">Services terminés</p>
-                            <p class="text-2xl font-bold"><?= $completedServices ?></p>
+                            <p class="text-2xl font-bold"><?= $stats['completed_services'] ?></p>
                         </div>
                     </div>
+                    
+                    <!-- Prestataires favoris -->
                     <div class="bg-purple-50 rounded-xl p-6 flex items-center">
                         <div class="bg-purple-100 text-purple-600 p-3 rounded-full mr-4">
                             <span class="material-icons">star</span>
                         </div>
                         <div>
                             <p class="text-sm text-gray-600">Prestataires favoris</p>
-                            <p class="text-2xl font-bold"><?= $favoriteProviders ?></p>
+                            <p class="text-2xl font-bold"><?= $stats['favorite_providers'] ?></p>
                         </div>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Informations personnelles -->
                     <div class="bg-gray-50 rounded-xl p-6">
                         <h3 class="text-lg font-semibold text-gray-700 mb-4">Informations personnelles</h3>
                         <div class="space-y-4">
                             <div>
                                 <p class="text-sm text-gray-500">Nom complet</p>
-                                <p class="font-medium"><?= htmlspecialchars($_SESSION['user']['prenom'] . ' ' . $_SESSION['user']['nom']) ?></p>
+                                <p class="font-medium">
+                                    <?= isset($user['prenom'], $user['nom']) ? 
+                                        htmlspecialchars($user['prenom'] . ' ' . $user['nom']) : 
+                                        'Non défini' ?>
+                                </p>
                             </div>
                             <div>
                                 <p class="text-sm text-gray-500">Email</p>
-                                <p class="font-medium"><?= htmlspecialchars($_SESSION['user']['email']) ?></p>
+                                <p class="font-medium"><?= isset($user['email']) ? htmlspecialchars($user['email']) : 'Non défini' ?></p>
                             </div>
                             <div>
                                 <p class="text-sm text-gray-500">Téléphone</p>
-                                <p class="font-medium"><?= htmlspecialchars($_SESSION['user']['telephone']) ?></p>
+                                <p class="font-medium"><?= isset($user['telephone']) ? htmlspecialchars($user['telephone']) : 'Non défini' ?></p>
                             </div>
                             <div>
                                 <p class="text-sm text-gray-500">Localisation</p>
-                                <p class="font-medium"><?= htmlspecialchars($_SESSION['user']['commune'] . ', ' . $_SESSION['user']['ville']) ?></p>
+                                <p class="font-medium">
+                                    <?= (isset($user['commune']) ? htmlspecialchars($user['commune']) : '') . 
+                                       (isset($user['ville'], $user['commune']) ? ', ' : '') . 
+                                       (isset($user['ville']) ? htmlspecialchars($user['ville']) : '') ?>
+                                </p>
                             </div>
                         </div>
                     </div>
 
+                    <!-- Notifications récentes -->
                     <div class="bg-gray-50 rounded-xl p-6">
                         <h3 class="text-lg font-semibold text-gray-700 mb-4">Notifications récentes</h3>
                         <div class="space-y-4 max-h-64 overflow-y-auto">
+                            <?php foreach ($notifications as $notification): ?>
                             <div class="flex items-start space-x-3 p-3 bg-white rounded-lg">
                                 <div class="bg-blue-100 text-blue-600 p-2 rounded-full">
-                                    <span class="material-icons text-sm">assignment</span>
+                                    <span class="material-icons text-sm"><?= htmlspecialchars($notification['icon'] ?? 'notifications') ?></span>
                                 </div>
                                 <div>
-                                    <p class="font-medium text-sm">Nouvelle demande confirmée</p>
-                                    <p class="text-xs text-gray-500">Votre plombier a accepté votre demande</p>
-                                    <p class="text-xs text-gray-400 mt-1">Il y a 30 min</p>
+                                    <p class="font-medium text-sm"><?= htmlspecialchars($notification['titre'] ?? 'Notification') ?></p>
+                                    <p class="text-xs text-gray-500"><?= htmlspecialchars($notification['message'] ?? '') ?></p>
+                                    <p class="text-xs text-gray-400 mt-1"><?= timeAgo($notification['date_creation'] ?? 'now') ?></p>
                                 </div>
                             </div>
-                            <div class="flex items-start space-x-3 p-3 bg-white rounded-lg">
-                                <div class="bg-green-100 text-green-600 p-2 rounded-full">
-                                    <span class="material-icons text-sm">check_circle</span>
-                                </div>
-                                <div>
-                                    <p class="font-medium text-sm">Service terminé</p>
-                                    <p class="text-xs text-gray-500">Votre service de nettoyage est complété</p>
-                                    <p class="text-xs text-gray-400 mt-1">Hier, 15:32</p>
-                                </div>
-                            </div>
-                            <div class="flex items-start space-x-3 p-3 bg-white rounded-lg">
-                                <div class="bg-yellow-100 text-yellow-600 p-2 rounded-full">
-                                    <span class="material-icons text-sm">star</span>
-                                </div>
-                                <div>
-                                    <p class="font-medium text-sm">Évaluation demandée</p>
-                                    <p class="text-xs text-gray-500">Donnez votre avis sur Jean Dupont</p>
-                                    <p class="text-xs text-gray-400 mt-1">Hier, 10:15</p>
-                                </div>
-                            </div>
+                            <?php endforeach; ?>
+                            <?php if (empty($notifications)): ?>
+                                <p class="text-gray-500 text-sm">Aucune notification récente</p>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Section Évaluation -->
+            <?php if (!empty($pendingEvaluations)): ?>
             <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
                 <h2 class="text-2xl font-bold text-gray-800 mb-6">Évaluer un service récent</h2>
                 
+                <?php foreach ($pendingEvaluations as $evaluation): ?>
                 <div class="bg-blue-50 rounded-xl p-6 mb-6">
-                    <div class="flex flex-col md:flex-row md:items-center">
-                        <div class="flex items-center mb-4 md:mb-0 md:w-1/3">
-                            <img src="https://ui-avatars.com/api/?name=Jean+Dupont&background=4f46e5&color=fff&size=64" alt="Prestataire" class="rounded-full w-12 h-12 mr-4">
-                            <div>
-                                <p class="font-medium">Jean Dupont</p>
-                                <p class="text-sm text-gray-600">Plombier • Service du 15 juin</p>
+                    <form action="submit_evaluation.php" method="POST" class="evaluation-form">
+                        <input type="hidden" name="demande_id" value="<?= $evaluation['demande_id'] ?>">
+                        <input type="hidden" name="prestataire_id" value="<?= $evaluation['prestataire_id'] ?>">
+                        <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+                        
+                        <div class="flex flex-col md:flex-row md:items-center">
+                            <div class="flex items-center mb-4 md:mb-0 md:w-1/3">
+                                <img src="<?= getProfileImage($evaluation['prestataire_photo'] ?? null, $evaluation['prestataire_nom'] ?? '') ?>" 
+                                     alt="Prestataire" class="rounded-full w-12 h-12 mr-4">
+                                <div>
+                                    <p class="font-medium"><?= htmlspecialchars($evaluation['prestataire_nom'] ?? 'Prestataire') ?></p>
+                                    <p class="text-sm text-gray-600">
+                                        <?= htmlspecialchars($evaluation['service_nom'] ?? 'Service') ?> • 
+                                        <?= isset($evaluation['date_service']) ? date('d M Y', strtotime($evaluation['date_service'])) : 'Date inconnue' ?>
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="md:w-2/3">
+                                <p class="text-gray-700 mb-3">Comment était votre expérience avec ce prestataire ?</p>
+                                <div class="flex items-center mb-4 rating-stars" data-rating="0">
+                                    <input type="hidden" name="note" value="0">
+                                    <?php for ($i = 1; $i <= 5; $i++): ?>
+                                        <span class="material-icons rating-star text-3xl text-gray-300" data-value="<?= $i ?>">star</span>
+                                    <?php endfor; ?>
+                                </div>
+                                <textarea name="commentaire" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" rows="3" placeholder="Ajoutez un commentaire (optionnel)"></textarea>
+                                <button type="submit" class="mt-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition">
+                                    Envoyer l'évaluation
+                                </button>
                             </div>
                         </div>
-                        <div class="md:w-2/3">
-                            <p class="text-gray-700 mb-3">Comment était votre expérience avec ce prestataire ?</p>
-                            <div class="flex items-center mb-4">
-                                <span class="material-icons rating-star text-3xl text-gray-300 hover:text-yellow-400" data-rating="1">star</span>
-                                <span class="material-icons rating-star text-3xl text-gray-300 hover:text-yellow-400" data-rating="2">star</span>
-                                <span class="material-icons rating-star text-3xl text-gray-300 hover:text-yellow-400" data-rating="3">star</span>
-                                <span class="material-icons rating-star text-3xl text-gray-300 hover:text-yellow-400" data-rating="4">star</span>
-                                <span class="material-icons rating-star text-3xl text-gray-300 hover:text-yellow-400" data-rating="5">star</span>
-                            </div>
-                            <textarea class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" rows="3" placeholder="Ajoutez un commentaire (optionnel)"></textarea>
-                            <button class="mt-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition">
-                                Envoyer l'évaluation
-                            </button>
-                        </div>
-                    </div>
+                    </form>
                 </div>
+                <?php endforeach; ?>
                 
+                <?php if (!empty($pastEvaluations)): ?>
                 <h3 class="text-lg font-semibold text-gray-700 mb-4">Vos évaluations précédentes</h3>
                 <div class="space-y-4">
+                    <?php foreach ($pastEvaluations as $evaluation): ?>
                     <div class="border border-gray-200 rounded-lg p-4">
                         <div class="flex justify-between items-start mb-2">
                             <div class="flex items-center">
-                                <img src="https://ui-avatars.com/api/?name=Marie+Claire&background=7c3aed&color=fff&size=48" alt="Prestataire" class="rounded-full w-10 h-10 mr-3">
+                                <img src="<?= getProfileImage($evaluation['prestataire_photo'] ?? null, $evaluation['prestataire_nom'] ?? '') ?>" 
+                                     alt="Prestataire" class="rounded-full w-10 h-10 mr-3">
                                 <div>
-                                    <p class="font-medium">Marie Claire</p>
-                                    <p class="text-sm text-gray-600">Nettoyage • 10 juin 2023</p>
+                                    <p class="font-medium"><?= htmlspecialchars($evaluation['prestataire_nom'] ?? 'Prestataire') ?></p>
+                                    <p class="text-sm text-gray-600">
+                                        <?= htmlspecialchars($evaluation['service_nom'] ?? 'Service') ?> • 
+                                        <?= isset($evaluation['date_evaluation']) ? date('d M Y', strtotime($evaluation['date_evaluation'])) : 'Date inconnue' ?>
+                                    </p>
                                 </div>
                             </div>
-                            <div class="flex text-yellow-400">
-                                <span class="material-icons">star</span>
-                                <span class="material-icons">star</span>
-                                <span class="material-icons">star</span>
-                                <span class="material-icons">star</span>
-                                <span class="material-icons">star</span>
+                            <div class="flex">
+                                <?php for ($i = 1; $i <= 5; $i++): ?>
+                                    <span class="material-icons text-yellow-400">
+                                        <?= $i <= ($evaluation['note'] ?? 0) ? 'star' : ($i == ceil($evaluation['note'] ?? 0) && (($evaluation['note'] ?? 0) % 1 > 0) ? 'star_half' : 'star') ?>
+                                    </span>
+                                <?php endfor; ?>
                             </div>
                         </div>
-                        <p class="text-gray-700">"Service exceptionnel, très professionnelle et attentionnée. Je recommande vivement !"</p>
+                        <?php if (!empty($evaluation['commentaire'])): ?>
+                        <p class="text-gray-700">"<?= htmlspecialchars($evaluation['commentaire']) ?>"</p>
+                        <?php endif; ?>
                     </div>
-                    
-                    <div class="border border-gray-200 rounded-lg p-4">
-                        <div class="flex justify-between items-start mb-2">
-                            <div class="flex items-center">
-                                <img src="https://ui-avatars.com/api/?name=Pierre+Martin&background=0d9488&color=fff&size=48" alt="Prestataire" class="rounded-full w-10 h-10 mr-3">
-                                <div>
-                                    <p class="font-medium">Pierre Martin</p>
-                                    <p class="text-sm text-gray-600">Électricien • 2 juin 2023</p>
-                                </div>
-                            </div>
-                            <div class="flex text-yellow-400">
-                                <span class="material-icons">star</span>
-                                <span class="material-icons">star</span>
-                                <span class="material-icons">star</span>
-                                <span class="material-icons">star</span>
-                                <span class="material-icons">star_half</span>
-                            </div>
-                        </div>
-                        <p class="text-gray-700">"Bon travail mais un peu en retard. Résultat final satisfaisant cependant."</p>
-                    </div>
+                    <?php endforeach; ?>
                 </div>
+                <?php endif; ?>
             </div>
+            <?php endif; ?>
 
             <!-- Section Messages -->
             <div class="bg-white rounded-xl shadow-sm p-6">
                 <h2 class="text-2xl font-bold text-gray-800 mb-6">Messages récents</h2>
                 
                 <div class="space-y-4">
-                    <div class="flex items-start p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                        <img src="https://ui-avatars.com/api/?name=Jean+Dupont&background=4f46e5&color=fff&size=48" alt="Prestataire" class="rounded-full w-12 h-12 mr-4">
+                    <?php foreach ($recentMessages as $message): ?>
+                    <a href="messages.php?conversation=<?= $message['sender_id'] ?? '' ?>" class="flex items-start p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer block">
+                        <img src="<?= getProfileImage($message['sender_photo'] ?? null, $message['sender_name'] ?? '') ?>" 
+                             alt="<?= htmlspecialchars($message['sender_name'] ?? 'Expéditeur') ?>" class="rounded-full w-12 h-12 mr-4">
                         <div class="flex-1">
                             <div class="flex justify-between items-start mb-1">
-                                <p class="font-medium">Jean Dupont</p>
-                                <p class="text-xs text-gray-500">14:30</p>
+                                <p class="font-medium"><?= htmlspecialchars($message['sender_name'] ?? 'Expéditeur') ?></p>
+                                <p class="text-xs text-gray-500"><?= timeAgo($message['date_envoi'] ?? 'now') ?></p>
                             </div>
-                            <p class="text-sm text-gray-600 mb-1">Bonjour, je serai là demain à 9h comme convenu.</p>
-                            <span class="inline-block bg-blue-500 text-white text-xs px-2 py-1 rounded-full">Nouveau</span>
+                            <p class="text-sm text-gray-600 mb-1"><?= htmlspecialchars(truncate($message['contenu'] ?? '', 50)) ?></p>
+                            <?php if (isset($message['is_read']) && !$message['is_read']): ?>
+                                <span class="inline-block bg-blue-500 text-white text-xs px-2 py-1 rounded-full">Nouveau</span>
+                            <?php endif; ?>
                         </div>
-                    </div>
-                    
-                    <div class="flex items-start p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                        <img src="https://ui-avatars.com/api/?name=Marie+Claire&background=7c3aed&color=fff&size=48" alt="Prestataire" class="rounded-full w-12 h-12 mr-4">
-                        <div class="flex-1">
-                            <div class="flex justify-between items-start mb-1">
-                                <p class="font-medium">Marie Claire</p>
-                                <p class="text-xs text-gray-500">Hier</p>
-                            </div>
-                            <p class="text-sm text-gray-600">Avez-vous reçu la facture que je vous ai envoyée ?</p>
-                        </div>
-                    </div>
-                    
-                    <div class="flex items-start p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                        <img src="https://ui-avatars.com/api/?name=Equipe+ClicService&background=0369a1&color=fff&size=48" alt="Support" class="rounded-full w-12 h-12 mr-4">
-                        <div class="flex-1">
-                            <div class="flex justify-between items-start mb-1">
-                                <p class="font-medium">Support ClicService</p>
-                                <p class="text-xs text-gray-500">12 juin</p>
-                            </div>
-                            <p class="text-sm text-gray-600">Votre réclamation a été traitée. Merci pour votre retour.</p>
-                        </div>
-                    </div>
+                    </a>
+                    <?php endforeach; ?>
+                    <?php if (empty($recentMessages)): ?>
+                        <p class="text-gray-500">Aucun message récent</p>
+                    <?php endif; ?>
                 </div>
                 
-                <button class="mt-6 w-full md:w-auto bg-white border border-blue-600 text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg font-medium transition">
+                <a href="messages.php" class="mt-6 w-full md:w-auto bg-white border border-blue-600 text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg font-medium transition inline-block text-center">
                     Voir tous les messages
-                </button>
+                </a>
             </div>
         </div>
     </main>
@@ -419,24 +419,21 @@ $favoriteProviders = 5;
                 </button>
             </div>
             <div class="max-h-96 overflow-y-auto">
+                <?php foreach ($notifications as $notification): ?>
                 <div class="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer">
-                    <p class="font-medium text-sm">Nouveau message</p>
-                    <p class="text-xs text-gray-500">Jean Dupont vous a envoyé un message</p>
-                    <p class="text-xs text-gray-400 mt-1">Il y a 15 min</p>
+                    <p class="font-medium text-sm"><?= htmlspecialchars($notification['titre'] ?? 'Notification') ?></p>
+                    <p class="text-xs text-gray-500"><?= htmlspecialchars($notification['message'] ?? '') ?></p>
+                    <p class="text-xs text-gray-400 mt-1"><?= timeAgo($notification['date_creation'] ?? 'now') ?></p>
                 </div>
-                <div class="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer">
-                    <p class="font-medium text-sm">Demande acceptée</p>
-                    <p class="text-xs text-gray-500">Votre demande de plomberie a été acceptée</p>
-                    <p class="text-xs text-gray-400 mt-1">Hier, 18:30</p>
+                <?php endforeach; ?>
+                <?php if (empty($notifications)): ?>
+                <div class="p-4 text-center text-gray-500">
+                    Aucune notification
                 </div>
-                <div class="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer">
-                    <p class="font-medium text-sm">Évaluation demandée</p>
-                    <p class="text-xs text-gray-500">Donnez votre avis sur Marie Claire</p>
-                    <p class="text-xs text-gray-400 mt-1">Hier, 10:15</p>
-                </div>
+                <?php endif; ?>
             </div>
             <div class="p-3 bg-gray-50 text-center">
-                <a href="#" class="text-sm text-blue-600 hover:underline">Voir toutes les notifications</a>
+                <a href="notifications.php" class="text-sm text-blue-600 hover:underline">Voir toutes les notifications</a>
             </div>
         </div>
     </div>
@@ -456,46 +453,50 @@ $favoriteProviders = 5;
         });
 
         // Système d'évaluation par étoiles
-        const stars = document.querySelectorAll('.rating-star');
-        let currentRating = 0;
-        
-        stars.forEach(star => {
-            star.addEventListener('click', function() {
-                const rating = parseInt(this.getAttribute('data-rating'));
-                currentRating = rating;
-                
-                stars.forEach((s, index) => {
-                    if (index < rating) {
-                        s.textContent = 'star';
-                        s.classList.remove('text-gray-300');
-                        s.classList.add('text-yellow-400');
-                    } else {
-                        s.textContent = 'star';
-                        s.classList.remove('text-yellow-400');
-                        s.classList.add('text-gray-300');
-                    }
-                });
-            });
+        document.querySelectorAll('.rating-stars').forEach(starsContainer => {
+            const stars = starsContainer.querySelectorAll('.rating-star');
+            const hiddenInput = starsContainer.querySelector('input[name="note"]');
+            let currentRating = parseInt(hiddenInput.value);
             
-            star.addEventListener('mouseover', function() {
-                const rating = parseInt(this.getAttribute('data-rating'));
-                
-                stars.forEach((s, index) => {
-                    if (index < rating) {
-                        s.textContent = 'star';
-                        s.classList.remove('text-gray-300');
-                        s.classList.add('text-yellow-400');
-                    }
+            stars.forEach(star => {
+                star.addEventListener('click', function() {
+                    const rating = parseInt(this.getAttribute('data-value'));
+                    currentRating = rating;
+                    hiddenInput.value = rating;
+                    
+                    stars.forEach((s, index) => {
+                        if (index < rating) {
+                            s.textContent = 'star';
+                            s.classList.remove('text-gray-300');
+                            s.classList.add('text-yellow-400');
+                        } else {
+                            s.textContent = 'star';
+                            s.classList.remove('text-yellow-400');
+                            s.classList.add('text-gray-300');
+                        }
+                    });
                 });
-            });
-            
-            star.addEventListener('mouseout', function() {
-                stars.forEach((s, index) => {
-                    if (index >= currentRating) {
-                        s.textContent = 'star';
-                        s.classList.remove('text-yellow-400');
-                        s.classList.add('text-gray-300');
-                    }
+                
+                star.addEventListener('mouseover', function() {
+                    const rating = parseInt(this.getAttribute('data-value'));
+                    
+                    stars.forEach((s, index) => {
+                        if (index < rating) {
+                            s.textContent = 'star';
+                            s.classList.remove('text-gray-300');
+                            s.classList.add('text-yellow-400');
+                        }
+                    });
+                });
+                
+                star.addEventListener('mouseout', function() {
+                    stars.forEach((s, index) => {
+                        if (index >= currentRating) {
+                            s.textContent = 'star';
+                            s.classList.remove('text-yellow-400');
+                            s.classList.add('text-gray-300');
+                        }
+                    });
                 });
             });
         });
@@ -514,13 +515,17 @@ $favoriteProviders = 5;
         document.addEventListener('DOMContentLoaded', function() {
             const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
             
-            // Ajouter le token CSRF à tous les formulaires
+            // Intercepter les formulaires
             document.querySelectorAll('form').forEach(form => {
-                const csrfInput = document.createElement('input');
-                csrfInput.type = 'hidden';
-                csrfInput.name = 'csrf_token';
-                csrfInput.value = csrfToken;
-                form.appendChild(csrfInput);
+                form.addEventListener('submit', function(e) {
+                    if (form.method.toLowerCase() === 'post') {
+                        const csrfInput = document.createElement('input');
+                        csrfInput.type = 'hidden';
+                        csrfInput.name = 'csrf_token';
+                        csrfInput.value = csrfToken;
+                        form.appendChild(csrfInput);
+                    }
+                });
             });
         });
     </script>

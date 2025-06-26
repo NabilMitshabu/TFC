@@ -102,36 +102,10 @@ try {
 <body class="bg-gray-50 font-sans min-h-screen">
 
   <!-- Header -->
-  <header class="bg-white shadow-md fixed w-full top-0 z-50">
-    <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-      <h1 class="text-xl font-bold text-blue-600">ClicService</h1>
-      <nav class="space-x-6 text-sm font-medium text-gray-600">
-        <a href="index.php" class="hover:text-blue-500">Accueil</a>
-        <a href="#" class="hover:text-blue-500">Connexion</a>
-        <a href="views/inscription.php" class="hover:text-blue-500">Inscription</a>
-      </nav>
-    </div>
-  </header>
+   <?php require "portions/header.php" ?>
 
   <!-- Contenu principal -->
   <main class="pt-28 pb-16 max-w-7xl mx-auto px-4">
-    <!-- Titre principal -->
-        <div class="text-center mb-12">
-        <h1 class="text-4xl font-bold text-blue-600 mb-2">
-            <?php if ($service_id): ?>
-            Prestataires pour <?= htmlspecialchars($servicesData[0]['service_nom'] ?? 'ce service') ?>
-            <?php else: ?>
-            Nos prestataires de services
-            <?php endif; ?>
-        </h1>
-        <p class="text-gray-600">
-            <?php if ($service_id): ?>
-            Sélection des professionnels spécialisés dans ce domaine
-            <?php else: ?>
-            Trouvez le professionnel qu'il vous faut parmi notre sélection
-            <?php endif; ?>
-        </p>
-        </div>
 
     <?php if (empty($services)): ?>
       <div class="bg-white p-8 rounded-xl shadow-md text-center max-w-2xl mx-auto">
@@ -144,7 +118,7 @@ try {
     <?php else: ?>
       <!-- Navigation rapide -->
       <div class="mb-8 bg-white p-6 rounded-xl shadow-md sticky top-20 z-10">
-        <h2 class="font-semibold text-gray-700 mb-3 text-lg">Services disponibles :</h2>
+        <h2 class="font-semibold text-gray-700 mb-3 text-lg">Prestataires :</h2>
         <div class="flex flex-wrap gap-3">
           <?php foreach (array_keys($services) as $serviceName): ?>
             <a href="#<?= urlencode(strtolower($serviceName)) ?>" 
@@ -257,7 +231,7 @@ try {
                 </div>
 
                 <div class="flex space-x-3">
-                <a href="profil_prestataire.php?id=<?= $prestataire['prestataire_id'] ?>" 
+                <a href="profilPresta.php?id=<?= $prestataire['prestataire_id'] ?>" 
                     class="flex-1 text-center bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-medium transition flex items-center justify-center text-sm">
                     <i class="fas fa-eye mr-2 text-xs"></i> Voir profil
                 </a>
@@ -276,24 +250,8 @@ try {
   </main>
 
   <!-- Footer -->
-  <footer class="bg-white border-t border-gray-200 py-8">
-    <div class="max-w-7xl mx-auto px-4">
-      <div class="flex flex-col md:flex-row justify-between items-center">
-        <div class="mb-4 md:mb-0">
-          <h2 class="text-xl font-bold text-blue-600 mb-2">ClicService</h2>
-          <p class="text-gray-500 text-sm">Trouvez le prestataire qu'il vous faut en quelques clics</p>
-        </div>
-        <div class="flex space-x-6">
-          <a href="#" class="text-gray-500 hover:text-blue-500"><i class="fab fa-facebook-f"></i></a>
-          <a href="#" class="text-gray-500 hover:text-blue-500"><i class="fab fa-twitter"></i></a>
-          <a href="#" class="text-gray-500 hover:text-blue-500"><i class="fab fa-instagram"></i></a>
-        </div>
-      </div>
-      <div class="mt-8 text-center text-gray-500 text-sm">
-        <p>© 2023 ClicService. Tous droits réservés.</p>
-      </div>
-    </div>
-  </footer>
+  <?php
+    require "portions/footer.php" ?>
 
 </body>
 </html>

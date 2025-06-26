@@ -107,9 +107,9 @@
             <div class="text-center">
                 <h2 class="text-4xl font-bold mb-4">Bonjour, Ami !</h2>
                 <p class="text-xl mb-8 opacity-90">Commencez une incroyable aventure<br>et amusez-vous avec nous</p>
-                <button class="px-8 py-3 bg-white text-blue-600 font-bold rounded-lg hover:bg-gray-100 transition transform hover:scale-105">
+                <a href="/inscription.php" class="px-8 py-3 bg-white text-blue-600 font-bold rounded-lg hover:bg-gray-100 transition transform hover:scale-105 block">
                     S'INSCRIRE
-                </button>
+                </a>
             </div>
         </div>
     </div>
@@ -151,16 +151,15 @@
                         errorElement.classList.remove('hidden');
                     }
                 } else if (result.status === 'success') {
-                    // Display success message and redirect
+                    // Display success message and redirect to client profile
                     const successElement = document.getElementById('success-message');
-                    successElement.textContent = result.message;
+                    successElement.textContent = result.message || 'Connexion réussie! Redirection en cours...';
                     successElement.classList.remove('hidden');
                     
-                    if (result.redirect) {
-                        setTimeout(() => {
-                            window.location.href = result.redirect;
-                        }, 1500);
-                    }
+                    // Redirect to profile page after a short delay
+                    setTimeout(() => {
+                        window.location.href = result.redirect || 'profilClient.php';
+                    }, 1500);
                 }
             } catch (error) {
                 console.error('Error:', error);
