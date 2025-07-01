@@ -43,18 +43,16 @@ try {
 
     $photo_profil = getProfilePhoto($prestataire['photo_profil']);
 
-
-    // Récupération des demandes en attente
-    $stmt = $pdo->prepare("
-        SELECT ds.*, u.nom AS client_nom, u.email AS client_email, s.nom AS service_nom 
-        FROM demandes_services ds
-        JOIN services s ON ds.service_id = s.id
-        JOIN users u ON ds.user_id = u.id
-        WHERE s.prestataire_id = ? AND ds.etat = 'En attente'
-    ");
-    $stmt->execute([$prestataire_id]);
-    $demandes = $stmt->fetchAll();
-
+        $stmt = $pdo->prepare("
+            SELECT ds.*, u.nom AS client_nom, u.email AS client_email, s.nom AS service_nom 
+            FROM demandes_services ds
+            JOIN services s ON ds.service_id = s.id
+            JOIN users u ON ds.user_id = u.id
+            WHERE s.prestataire_id = ? AND ds.etat = 'En attente'
+        ");
+        $stmt->execute([$prestataire_id]);
+        $demandes = $stmt->fetchAll();
+        
     // Récupération des tâches en cours
     $stmt = $pdo->prepare("
         SELECT ds.*, u.nom AS client_nom, s.nom AS service_nom 
@@ -88,34 +86,83 @@ try {
     $moyenne = $stmt->fetchColumn();
     $stats['evaluation_moyenne'] = $moyenne ? round($moyenne, 1) : 0;
 
-    // Traitement des actions sur les demandes
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-        $demande_id = $_POST['demande_id'] ?? null;
-
-        if ($demande_id && is_numeric($demande_id)) {
+   // Dans la partie traitement du formulaire
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    $demande_id = $_POST['demande_id'] ?? null;
+    
+    if ($demande_id && is_numeric($demande_id)) {
+        try {
             switch ($_POST['action']) {
                 case 'accepter':
                     $stmt = $pdo->prepare("UPDATE demandes_services SET etat = 'Validée' WHERE id = ?");
                     $stmt->execute([$demande_id]);
+                    
+                    // Récupérer les infos du client
+                    $stmt = $pdo->prepare("SELECT user_id FROM demandes_services WHERE id = ?");
+                    $stmt->execute([$demande_id]);
+                    $client_id = $stmt->fetchColumn();
+                    
+                    // Créer la notification
+                    $stmt = $pdo->prepare("
+                        INSERT INTO notifications 
+                        (user_id, titre, message, icon) 
+                        VALUES (?, 'Demande acceptée', 'Votre demande #{$demande_id} a été acceptée', 'check_circle')
+                    ");
+                    $stmt->execute([$client_id]);
                     break;
-
+                    
                 case 'refuser':
                     $stmt = $pdo->prepare("UPDATE demandes_services SET etat = 'Refusée' WHERE id = ?");
                     $stmt->execute([$demande_id]);
+                    
+                    // Récupérer les infos du client
+                    $stmt = $pdo->prepare("SELECT user_id FROM demandes_services WHERE id = ?");
+                    $stmt->execute([$demande_id]);
+                    $client_id = $stmt->fetchColumn();
+                    
+                    // Créer la notification
+                    $stmt = $pdo->prepare("
+                        INSERT INTO notifications 
+                        (user_id, titre, message, icon) 
+                        VALUES (?, 'Demande refusée', 'Votre demande #{$demande_id} a été refusée', 'cancel')
+                    ");
+                    $stmt->execute([$client_id]);
                     break;
-
+                    
                 case 'changer_statut':
                     $nouveau_statut = $_POST['statut'] ?? null;
                     if ($nouveau_statut) {
                         $stmt = $pdo->prepare("UPDATE demandes_services SET etat = ? WHERE id = ?");
                         $stmt->execute([$nouveau_statut, $demande_id]);
+                        
+                        if ($nouveau_statut === 'Terminée') {
+                            // Notifier le client quand le service est terminé
+                            $stmt = $pdo->prepare("SELECT user_id FROM demandes_services WHERE id = ?");
+                            $stmt->execute([$demande_id]);
+                            $client_id = $stmt->fetchColumn();
+                            
+                            $stmt = $pdo->prepare("
+                                INSERT INTO notifications 
+                                (user_id, titre, message, icon) 
+                                VALUES (?, 'Service terminé', 'Le service #{$demande_id} est marqué comme terminé', 'done_all')
+                            ");
+                            $stmt->execute([$client_id]);
+                        }
                     }
                     break;
             }
+            
+            header("Location: " . $_SERVER['PHP_SELF']);
+            exit();
+            
+        } catch (PDOException $e) {
+            error_log("Erreur notification: " . $e->getMessage());
+            // Ne pas bloquer l'action même si la notification échoue
             header("Location: " . $_SERVER['PHP_SELF']);
             exit();
         }
     }
+}
 
 } catch (PDOException $e) {
     // Log de l'erreur pour debug (ne pas afficher en prod)

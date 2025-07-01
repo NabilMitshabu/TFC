@@ -1,5 +1,5 @@
 
-<?php 
+<?php
 include 'includes/db_connect.php';
 
 // Récupération des services pour la section principale
@@ -38,24 +38,38 @@ $bannerServices = $bannerServicesQuery->fetchAll(PDO::FETCH_ASSOC);
 <body class="bg-gray-50 text-gray-800 font-sans">
   <!-- ... (header et autres sections identiques) ... -->
      <!-- Header -->
-  <header class="bg-blue-600 text-gray-50">
-    <div class="flex justify-between items-center px-6 py-4">
-      <!-- Logo -->
-      <div class="fixed top-0 left-0 w-full z-50 bg-blue-600">
-        <div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
-          <a href="#" class="text-2xl font-semibold">ClicService</a>
-          <!-- Liens de connexion -->
-          <nav class="flex space-x-4">
-            <a href="#" class="hover:underline">Connexion</a>
-            <a href="views/inscription.php" class="hover:underline">Inscription</a>
-          </nav>
-        </div>
-      </div>
+<header class="bg-blue-600 fixed w-full top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+        <a href="/index.php" class="text-xl font-bold text-white hover:text-blue-200 transition">ClicService</a>
+        
+        <nav class="flex items-center space-x-6 text-sm font-medium text-white">
+            <a href="/index.php" class="hover:text-blue-200 transition">Accueil</a>
+            
+            <?php if (isset($_SESSION['user'])): ?>
+                <!-- Menu utilisateur connecté -->
+                <div class="relative group">
+                    <button class="flex items-center space-x-2 focus:outline-none hover:text-blue-200 transition">
+                        <span class="hidden md:inline"><?= htmlspecialchars($_SESSION['user']['prenom']) ?></span>
+                        <img src="https://ui-avatars.com/api/?name=<?= urlencode($_SESSION['user']['prenom'] . '+' . $_SESSION['user']['nom']) ?>&background=ffffff&color=3b82f6" 
+                             alt="Profil" class="w-8 h-8 rounded-full border-2 border-white">
+                    </button>
+                    <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden group-hover:block border border-gray-100">
+                        <a href="dashboard.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition">Tableau de bord</a>
+                        <a href="profil.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition">Mon profil</a>
+                        <a href="logout.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition">Déconnexion</a>
+                    </div>
+                </div>
+            <?php else: ?>
+                <!-- Menu visiteur -->
+                <a href="views/signInClient.php" class="hover:text-blue-200 transition">Connexion</a>
+                <a href="views/inscription.php" class="hover:text-blue-200 transition">Inscription</a>
+            <?php endif; ?>
+        </nav>
     </div>
-  </header>
+</header>
 
   <!-- Section Services -->
-    <section class="py-12 bg-blue-600">
+    <section class="py-12 mt-12 bg-blue-600">
         <div class="max-w-7xl mx-auto px-4">
             <h2 class="text-3xl text-white font-bold text-center mb-8">Nos services à domicile</h2>
             

@@ -133,16 +133,8 @@ function genererEtoiles($note) {
 <body class="bg-gray-50 font-sans min-h-screen">
 
   <!-- Header -->
-  <header class="bg-white text-gray-800 shadow-md fixed w-full top-0 z-50">
-    <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-blue-600">ClicService</h1>
-      <nav class="space-x-6 text-sm font-medium text-gray-600">
-        <a href="/index.php" class="hover:text-blue-500">Accueil</a>
-        <a href="#" class="hover:text-blue-500">Connexion</a>
-        <a href="#" class="hover:text-blue-500">Inscription</a>
-      </nav>
-    </div>
-  </header>
+   <!-- Header -->
+   <?php require "portions/header.php" ?>
 
   <main class="max-w-5xl mx-auto mt-32 mb-20 px-4">
     <!-- Profile Card - Version améliorée -->

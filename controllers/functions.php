@@ -162,3 +162,20 @@ function countUnreadMessages(PDO $pdo, int $userId): int {
         return 0;
     }
 }
+
+function getUnreadNotificationsCount($pdo, $user_id) {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0");
+    $stmt->execute([$user_id]);
+    return $stmt->fetchColumn();
+}
+
+function getRecentNotifications($pdo, $user_id, $limit = 5) {
+    $stmt = $pdo->prepare("
+        SELECT * FROM notifications 
+        WHERE user_id = ? 
+        ORDER BY date_creation DESC 
+        LIMIT ?
+    ");
+    $stmt->execute([$user_id, $limit]);
+    return $stmt->fetchAll();
+}
