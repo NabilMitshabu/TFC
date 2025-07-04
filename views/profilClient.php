@@ -197,6 +197,63 @@ $pastEvaluations = getPastEvaluations($pdo, $_SESSION['user']['id']);
                     </div>
                 </div>
             </div>
+
+            <!-- Dans dashboardClient.php -->
+<div class="bg-white rounded-xl shadow-sm p-6 mt-6">
+    <h3 class="text-lg font-semibold text-gray-700 mb-4">Évaluations en attente</h3>
+    
+    <?php if (!empty($pendingEvaluations)): ?>
+        <div class="space-y-4">
+            <?php foreach ($pendingEvaluations as $eval): ?>
+                <div class="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                    <div>
+                        <p class="font-medium"><?= htmlspecialchars($eval['service_nom']) ?></p>
+                        <p class="text-sm text-gray-600">Prestataire: <?= htmlspecialchars($eval['presta_nom']) ?></p>
+                        <p class="text-xs text-gray-500">Terminé le <?= date('d/m/Y', strtotime($eval['date_evaluation'])) ?></p>
+                    </div>
+                    <a href="evaluation.php?demande_id=<?= $eval['demande_id'] ?>" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        Évaluer
+                    </a>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php else: ?>
+        <p class="text-gray-500">Aucune évaluation en attente</p>
+    <?php endif; ?>
+</div>
+
+<!-- Section pour les évaluations passées -->
+<div class="bg-white rounded-xl shadow-sm p-6 mt-6">
+    <h3 class="text-lg font-semibold text-gray-700 mb-4">Vos dernières évaluations</h3>
+    
+    <?php if (!empty($pastEvaluations)): ?>
+        <div class="space-y-4">
+            <?php foreach ($pastEvaluations as $eval): ?>
+                <div class="p-4 border-b border-gray-200">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-medium"><?= htmlspecialchars($eval['service_nom']) ?></p>
+                            <p class="text-sm text-gray-600">Prestataire: <?= htmlspecialchars($eval['presta_nom']) ?></p>
+                        </div>
+                        <div class="flex items-center">
+                            <?php for ($i = 1; $i <= 5; $i++): ?>
+                                <span class="material-icons text-sm">
+                                    <?= $i <= $eval['note'] ? 'star' : 'star_border' ?>
+                                </span>
+                            <?php endfor; ?>
+                        </div>
+                    </div>
+                    <?php if (!empty($eval['commentaire'])): ?>
+                        <p class="mt-2 text-sm text-gray-700">"<?= htmlspecialchars($eval['commentaire']) ?>"</p>
+                    <?php endif; ?>
+                    <p class="mt-1 text-xs text-gray-500">Évalué le <?= date('d/m/Y', strtotime($eval['date_evaluation'])) ?></p>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php else: ?>
+        <p class="text-gray-500">Vous n'avez pas encore évalué de services</p>
+    <?php endif; ?>
+</div>
         </div>
     </main>
 

@@ -81,13 +81,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ville'])) {
 
         // Enregistrer services
         foreach ($services as $s) {
-            $stmt = $pdo->prepare("INSERT INTO services (nom, prestataire_id, tarif, devise) VALUES (?, ?, ?, ?)");
+           $stmt = $pdo->prepare("INSERT INTO services (nom, prestataire_id, description, tarif, devise) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([
                 $s['name'],
                 $prestataireId,
+                $s['description'] ?? null,
                 $s['price'],
                 $s['currency']
             ]);
+
         }
 
         header("Location: ../views/inscriptionPresta3.php");
@@ -148,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['carte_identite'])) {
             $stmt = $pdo->prepare("UPDATE prestataires SET carte_identite = ?, photo_profil = ? WHERE user_id = ?");
             $stmt->execute([$carteName, $photoName, $userId]);
 
-            header("Location: ../views/confirmation.php");
+            header("Location: ../views/inscriptionPresta3.php");
             exit;
         } else {
             $_SESSION['error'] = "Erreur lors du téléversement des fichiers.";
@@ -157,6 +159,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['carte_identite'])) {
         $_SESSION['error'] = implode("<br>", $errors);
     }
 
-    header("Location: ../views/inscriptionPresta3.php");
+    header("Location: ../views/confirmation.php");
     exit;
 }

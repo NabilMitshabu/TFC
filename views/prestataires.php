@@ -223,12 +223,12 @@ try {
                 <span><?= htmlspecialchars($prestataire['ville']) ?>, <?= htmlspecialchars($prestataire['commune']) ?></span>
                 </div>
 
-                <div class="flex justify-between items-center bg-blue-50 rounded-xl p-3 mb-4">
-                <span class="text-sm font-medium text-gray-600">Tarif/h</span>
+                <!-- <div class="flex justify-between items-center bg-blue-50 rounded-xl p-3 mb-4">
+                <span class="text-sm font-medium text-gray-600">Tarif</span>
                 <span class="text-green-600 font-bold">
-                    <?= number_format($prestataire['tarif'] ?? 0, 2) ?> <?= $prestataire['devise'] === 'USD' ? '$' : 'CDF' ?>
+                   <?= number_format($prestataire['tarif'] ?? 0, 2) ?> <?= $prestataire['devise'] === 'USD' ? '$' : 'CDF' ?>
                 </span>
-                </div>
+                </div> -->
 
                 <div class="flex space-x-3">
                 <a href="profilPresta.php?id=<?= $prestataire['prestataire_id'] ?>" 

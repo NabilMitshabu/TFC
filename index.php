@@ -28,7 +28,7 @@ $bannerServices = $bannerServicesQuery->fetchAll(PDO::FETCH_ASSOC);
         }
         .hide-scrollbar {
             -ms-overflow-style: none;
-            scrollbar-width: none;
+            scrollbar-width: none;  
         }
         .hide-scrollbar::-webkit-scrollbar {
             display: none;
@@ -68,39 +68,43 @@ $bannerServices = $bannerServicesQuery->fetchAll(PDO::FETCH_ASSOC);
     </div>
 </header>
 
-  <!-- Section Services -->
-    <section class="py-12 mt-12 bg-blue-600">
-        <div class="max-w-7xl mx-auto px-4">
-            <h2 class="text-3xl text-white font-bold text-center mb-8">Nos services à domicile</h2>
-            
-            <!-- Conteneur blanc avec ombre -->
-          <div class="rounded-xl shadow-sm p-6">
-                <!-- Liste des services scrollable -->
-                <div class="relative">
-                    <div class="flex overflow-x-auto hide-scrollbar pb-4">
-                        <div class="flex space-x-6">
-                            <!-- Dans la boucle des services, modifiez le lien pour inclure l'ID du service -->
-                              <!-- Dans la boucle des services, modifiez le lien pour inclure l'ID du service -->
-                                <?php foreach ($services as $service): ?>
-                                <div class="flex-shrink-0 w-40">
-                                    <a href="/views/prestataires.php?service_id=<?= $service['id'] ?>" class="block">
-                                        <div class="service-card bg-white rounded-lg border border-gray-200 p-4 text-center hover:border-blue-300">
-                                            <div class="bg-blue-50 p-3 rounded-full w-14 h-14 flex items-center justify-center mx-auto mb-3">
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-6 h-6 text-blue-600">
-                                                    <?= $service['icone'] ?>
-                                                </svg>
-                                            </div>
-                                            <h4 class="font-medium text-gray-800"><?= htmlspecialchars($service['nom']) ?></h4>
-                                        </div>
-                                    </a>
-                                </div>
-                                <?php endforeach; ?>
-                        </div>
+<!-- Section Services -->
+<section class="py-12 mt-12 bg-blue-600 relative">
+  <div class="max-w-7xl mx-auto px-4">
+    <h2 class="text-3xl text-white font-bold text-center mb-8">Nos services à domicile</h2>
+
+    <div class="rounded-xl p-6 bg-blue-600 relative">
+      <!-- Boutons flèches agrandis et harmonisés -->
+      <button id="prevBtn" class="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white text-blue-600 text-2xl p-4 rounded-full shadow-md hover:bg-gray-100 hidden transition">
+        &#10094;
+      </button>
+      <button id="nextBtn" class="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white text-blue-600 text-2xl p-4 rounded-full shadow-md hover:bg-gray-100 hidden transition">
+        &#10095;
+      </button>
+
+      <div class="relative">
+        <div id="serviceScroll" class="flex overflow-x-auto hide-scrollbar pb-4 scroll-smooth">
+          <div class="flex space-x-6">
+            <?php foreach ($services as $service): ?>
+              <div class="flex-shrink-0 w-40">
+                <a href="/views/prestataires.php?service_id=<?= $service['id'] ?>" class="block">
+                  <div class="service-card bg-white rounded-lg border border-gray-200 p-4 text-center hover:border-blue-300">
+                    <div class="bg-blue-50 p-3 rounded-full w-14 h-14 flex items-center justify-center mx-auto mb-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-6 h-6 text-blue-600">
+                        <?= $service['icone'] ?>
+                      </svg>
                     </div>
-                </div>
-            </div>
+                    <h4 class="font-medium text-gray-800"><?= htmlspecialchars($service['nom']) ?></h4>
+                  </div>
+                </a>
+              </div>
+            <?php endforeach; ?>
+          </div>
         </div>
-    </section>
+      </div>
+    </div>
+  </div>
+</section>
 
  <!-- Bannière dynamique -->
 <section class="flex justify-center py-8 px-4">
@@ -121,10 +125,11 @@ $bannerServices = $bannerServicesQuery->fetchAll(PDO::FETCH_ASSOC);
   <!-- Catégories populaires -->
   <section class="py-12 bg-white">
     <div class="max-w-6xl mx-auto px-4">
-      <h3 class="text-3xl font-bold mb-10 text-center">Nos catégories populaires</h3>
+      <h3 class="text-3xl font-bold mb-10 text-center">Quelques catégories </h3>
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
         <?php 
-        $popularServices = array_slice($services, 0, 3); // Prendre les 3 premiers services
+        // Prendre les 3 premiers services
+        $popularServices = array_slice($services, 0, 3); 
         foreach ($popularServices as $service): 
         ?>
         <div class="bg-gray-50 p-6 rounded-lg text-center shadow hover:shadow-lg transition transform hover:-translate-y-1 border border-gray-200">
@@ -229,6 +234,27 @@ $bannerServices = $bannerServicesQuery->fetchAll(PDO::FETCH_ASSOC);
 
   
 <script>
+  const scrollContainer = document.getElementById('serviceScroll');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+
+  function updateButtons() {
+    const maxScrollLeft = scrollContainer.scrollWidth - scrollContainer.clientWidth;
+    prevBtn.style.display = scrollContainer.scrollLeft > 0 ? 'block' : 'none';
+    nextBtn.style.display = scrollContainer.scrollLeft < maxScrollLeft - 5 ? 'block' : 'none';
+  }
+
+  prevBtn.addEventListener('click', () => {
+    scrollContainer.scrollBy({ left: -200, behavior: 'smooth' });
+  });
+
+  nextBtn.addEventListener('click', () => {
+    scrollContainer.scrollBy({ left: 200, behavior: 'smooth' });
+  });
+
+  scrollContainer.addEventListener('scroll', updateButtons);
+  window.addEventListener('resize', updateButtons);
+  window.addEventListener('load', updateButtons);
   // Liste des services avec leurs icônes (utilisez les icônes de Heroicons)
   const services = [
     { name: "Plomberie", icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />' },
@@ -261,6 +287,6 @@ $bannerServices = $bannerServicesQuery->fetchAll(PDO::FETCH_ASSOC);
   rotateServices(); // Affiche immédiatement le premier service
   setInterval(rotateServices, 3000);
 </script>
-  </script>
+
 </body>
 </html>

@@ -82,7 +82,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -90,6 +89,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Demande de Service</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+    <style>
+        .custom-input {
+            border: none;
+            border-bottom: 1px solid #d1d5db;
+            border-radius: 0;
+            padding-left: 0;
+            padding-right: 0;
+            box-shadow: none;
+        }
+        .custom-input:focus {
+            outline: none;
+            box-shadow: none;
+            border-bottom-color: #3b82f6;
+        }
+    </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
     <!-- Header -->
@@ -102,16 +116,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <span class="ml-2 font-semibold"><?= htmlspecialchars($prestataire['prenom'] . ' ' . $prestataire['nom']) ?></span>
         </div>
         
-        <div class="bg-white shadow-lg rounded-lg overflow-hidden flex flex-col md:flex-row">
-            <!-- Image section -->
-            <div class="md:w-1/2">
-                <img src="https://th.bing.com/th/id/OIP.IUaEKbf_JeqNy5Lmz2cORQHaE8?w=1920&h=1280&rs=1&pid=ImgDetMain&cb=idpwebp2&o=7&rm=3"
-                    alt="Service" class="w-full h-full object-cover max-h-[300px]" loading="lazy" />
-            </div>
-
-            <!-- Form section -->
-            <div class="md:w-1/2 p-4 overflow-y-auto">
-                <h2 class="text-xl font-bold text-center mb-2 text-blue-700">Demande Service</h2>
+        <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+            <div class="p-8">
+                <h1 class="text-2xl font-bold text-center mb-1">Demande de Service</h1>
+                <p class="text-center text-gray-600 mb-8">Remplissez les détails de votre demande</p>
 
                 <?php if (!empty($errors)): ?>
                     <div class="mb-4 p-3 bg-red-100 text-red-700 rounded text-sm">
@@ -121,14 +129,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 <?php endif; ?>
 
-                <form action="" method="POST" class="space-y-3 text-sm">
+                <form action="" method="POST" class="space-y-6">
                     <input type="hidden" name="prestataire_id" value="<?= $prestataire_id ?>">
                     
                     <!-- Service demandé -->
                     <div>
-                        <label for="service" class="block font-medium mb-1">Service</label>
-                        <select id="service" name="service" class="w-full h-9 border border-gray-300 rounded px-3 shadow-sm" required>
-                            <option value="">-- Sélectionner --</option>
+                        <label for="service" class="block font-medium mb-2">Service</label>
+                        <select id="service" name="service" class="w-full custom-input py-2" required>
+                            <option value="">-- Sélectionner un service --</option>
                             <?php foreach ($services as $service): ?>
                                 <option value="<?= $service['id'] ?>" <?= (isset($_POST['service']) && $_POST['service'] == $service['id']) ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($service['nom']) ?>
@@ -138,36 +146,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <!-- Date et heure -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label for="date" class="block font-medium mb-1">Date</label>
+                            <label for="date" class="block font-medium mb-2">Date</label>
                             <input type="date" id="date" name="date" value="<?= htmlspecialchars($_POST['date'] ?? '') ?>"
-                                   min="<?= date('Y-m-d') ?>" class="w-full h-9 border border-gray-300 rounded px-3 shadow-sm" required />
+                                   min="<?= date('Y-m-d') ?>" class="w-full custom-input py-2" required />
                         </div>
                         <div>
-                            <label for="heure" class="block font-medium mb-1">Heure</label>
+                            <label for="heure" class="block font-medium mb-2">Heure</label>
                             <input type="time" id="heure" name="heure" value="<?= htmlspecialchars($_POST['heure'] ?? '') ?>"
-                                   class="w-full h-9 border border-gray-300 rounded px-3 shadow-sm" required />
+                                   class="w-full custom-input py-2" required />
                         </div>
                     </div>
 
                     <!-- Lieu -->
                     <div>
-                        <label for="lieu" class="block font-medium mb-1">Lieu</label>
+                        <label for="lieu" class="block font-medium mb-2">Lieu</label>
                         <input type="text" id="lieu" name="lieu" value="<?= htmlspecialchars($_POST['lieu'] ?? '') ?>"
-                               placeholder="Commune, Quartier, Avenue, N°" class="w-full h-9 border border-gray-300 rounded px-3 shadow-sm" required />
+                               placeholder="Commune, Quartier, Avenue, N°" class="w-full custom-input py-2" required />
                     </div>
 
                     <!-- Message -->
                     <div>
-                        <label for="message" class="block font-medium mb-1">Message</label>
-                        <textarea id="message" name="message" rows="2" class="w-full border border-gray-300 rounded px-3 py-1 shadow-sm"><?= htmlspecialchars($_POST['message'] ?? '') ?></textarea>
+                        <label for="message" class="block font-medium mb-2">Message</label>
+                        <textarea id="message" name="message" rows="3" 
+                                  class="w-full custom-input py-2"><?= htmlspecialchars($_POST['message'] ?? '') ?></textarea>
                     </div>
 
                     <!-- Bouton -->
-                    <div class="text-center mt-2">
-                        <button type="submit" class="bg-blue-600 text-white px-5 py-1.5 rounded shadow hover:bg-blue-700 transition text-sm">
-                            Envoyer
+                    <div class="text-center mt-8">
+                        <button type="submit" class="bg-blue-600 text-white px-8 py-3 rounded-lg shadow hover:bg-blue-700 transition text-lg font-medium w-full">
+                            Envoyer la demande
                         </button>
                     </div>
                 </form>

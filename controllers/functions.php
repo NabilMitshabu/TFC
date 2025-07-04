@@ -73,45 +73,6 @@ function getRecentMessages(PDO $pdo, int $userId, int $limit = 3): array {
 }
 
 
-function getPendingEvaluations(PDO $pdo, int $userId): array {
-    $stmt = $pdo->prepare("
-        SELECT d.id as demande_id, d.date_heure_rdv as date_service, 
-               s.nom as service_nom, p.id as prestataire_id,
-               CONCAT(u.prenom, ' ', u.nom) as prestataire_nom,
-               p.photo_profil as prestataire_photo
-        FROM demandes_services d
-        JOIN services s ON d.service_id = s.id
-        JOIN prestataires p ON s.prestataire_id = p.id
-        JOIN users u ON p.user_id = u.id
-        LEFT JOIN evaluations e ON e.demande_id = d.id
-        WHERE d.user_id = ? 
-        AND d.etat = 'Terminée'
-        AND e.id IS NULL
-        ORDER BY d.date_heure_rdv DESC
-        LIMIT 1
-    ");
-    $stmt->execute([$userId]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-function getPastEvaluations(PDO $pdo, int $userId, int $limit = 2): array {
-    $limit = (int) $limit; // sécurisation
-    $stmt = $pdo->prepare("
-        SELECT e.*, e.note, e.commentaire, e.date_evaluation,
-               CONCAT(u.prenom, ' ', u.nom) as prestataire_nom,
-               p.photo_profil as prestataire_photo,
-               s.nom as service_nom
-        FROM evaluations e
-        JOIN prestataires p ON e.prestataire_id = p.id
-        JOIN users u ON p.user_id = u.id
-        JOIN services s ON e.service_id = s.id
-        WHERE e.user_id = ?
-        ORDER BY e.date_evaluation DESC
-        LIMIT $limit
-    ");
-    $stmt->execute([$userId]); // ✅ le LIMIT n’est plus un paramètre
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
 
 
 function getProfileImage(?string $photo, string $name): string {
@@ -177,5 +138,33 @@ function getRecentNotifications($pdo, $user_id, $limit = 5) {
         LIMIT ?
     ");
     $stmt->execute([$user_id, $limit]);
+    return $stmt->fetchAll();
+}
+function getPendingEvaluations($pdo, $client_id) {
+    $stmt = $pdo->prepare("
+        SELECT e.*, u.nom AS presta_nom, s.nom AS service_nom
+        FROM evaluations e
+        JOIN prestataires p ON e.prestataire_id = p.id
+        JOIN users u ON p.user_id = u.id
+        JOIN services s ON e.service_id = s.id
+        WHERE e.user_id = ? AND e.note IS NULL
+        ORDER BY e.date_evaluation DESC
+    ");
+    $stmt->execute([$client_id]);
+    return $stmt->fetchAll();
+}
+
+function getPastEvaluations($pdo, $client_id) {
+    $stmt = $pdo->prepare("
+        SELECT e.*, u.nom AS presta_nom, s.nom AS service_nom
+        FROM evaluations e
+        JOIN prestataires p ON e.prestataire_id = p.id
+        JOIN users u ON p.user_id = u.id
+        JOIN services s ON e.service_id = s.id
+        WHERE e.user_id = ? AND e.note IS NOT NULL
+        ORDER BY e.date_evaluation DESC
+        LIMIT 5
+    ");
+    $stmt->execute([$client_id]);
     return $stmt->fetchAll();
 }

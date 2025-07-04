@@ -18,7 +18,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     echo "<p><strong>Commune :</strong> " . htmlspecialchars($commune) . "</p>";
     echo "<h2>Services :</h2><ul>";
     foreach ($services as $s) {
-        echo "<li>" . htmlspecialchars($s['name']) . " - " . intval($s['price']) . " " . htmlspecialchars($s['currency']) . "</li>";
+        echo "<li>" . htmlspecialchars($s['name']) . " - " . intval($s['price']) . " " . htmlspecialchars($s['currency']);
+        if (!empty($s['description'])) {
+            echo "<p>Description: " . htmlspecialchars($s['description']) . "</p>";
+        }
+        echo "</li>";
     }
     echo "</ul>";
     exit;
@@ -33,10 +37,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <title>Inscription - Étape 2</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
   <style>
-    .service-item { transition: all 0.2s ease; }
-    .service-item:hover { background-color: #f8fafc; }
-    .remove-service { opacity: 0; transition: opacity 0.2s ease; }
-    .service-item:hover .remove-service { opacity: 1; }
+    .service-item { 
+        transition: all 0.2s ease; 
+        padding: 0.75rem;
+    }
+    .service-item:hover { 
+        background-color: #f8fafc; 
+    }
+    .remove-service { 
+        opacity: 0; 
+        transition: opacity 0.2s ease; 
+    }
+    .service-item:hover .remove-service { 
+        opacity: 1; 
+    }
+    .service-description {
+        font-size: 0.875rem;
+        color: #6b7280;
+        margin-top: 0.25rem;
+    }
   </style>
 </head>
 <body class="bg-gray-50">
@@ -71,6 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php foreach ($categories as $categorie): ?>
                 <option value="<?= htmlspecialchars($categorie) ?>"><?= htmlspecialchars($categorie) ?></option>
             <?php endforeach; ?>
+            <option value="autre">Autre service</option>
           </select>
           <input type="number" id="servicePrice" placeholder="Prix" class="w-1/4 border border-gray-300 rounded-lg h-12 px-3 focus:ring focus:ring-blue-300" min="0" step="100" />
           <select id="serviceCurrency" class="w-1/4 border border-gray-300 rounded-lg h-12 px-2 focus:ring focus:ring-blue-300">
@@ -80,6 +100,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
         <div id="customServiceContainer" class="hidden mt-2">
           <input type="text" id="customServiceName" placeholder="Nom du service personnalisé" class="w-full border border-gray-300 rounded-lg h-12 px-3 focus:ring focus:ring-blue-300" />
+        </div>
+        <div class="mt-2">
+          <textarea id="serviceDescription" placeholder="Description du service (facultatif)" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring focus:ring-blue-300" rows="2"></textarea>
         </div>
       </div>
 
@@ -118,6 +141,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     const serviceCurrency = document.getElementById('serviceCurrency');
     const customServiceContainer = document.getElementById('customServiceContainer');
     const customServiceName = document.getElementById('customServiceName');
+    const serviceDescription = document.getElementById('serviceDescription');
     const addServiceBtn = document.getElementById('addServiceBtn');
     const servicesData = document.getElementById('servicesData');
 
@@ -136,6 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       const price = servicePrice.value.trim();
       const currency = serviceCurrency.value;
       const serviceName = category === 'autre' ? customServiceName.value.trim() : category;
+      const description = serviceDescription.value.trim();
 
       if (!category || category === '-- Sélectionner --') {
         alert('Veuillez sélectionner une catégorie de service');
@@ -162,14 +187,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         name: serviceName,
         price: parseInt(price),
         currency: currency,
-        category: category === 'autre' ? 'custom' : category
+        category: category === 'autre' ? 'custom' : category,
+        description: description
       };
 
       services.push(service);
       updateServicesList();
 
+      // Réinitialisation des champs
       serviceCategory.value = '';
       servicePrice.value = '';
+      serviceCurrency.value = 'CDF';
+      serviceDescription.value = '';
       customServiceName.value = '';
       customServiceContainer.classList.add('hidden');
     });
@@ -181,15 +210,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         services.forEach((service, index) => {
           const serviceItem = document.createElement('div');
-          serviceItem.className = 'service-item p-3 flex justify-between items-center';
+          serviceItem.className = 'service-item p-3 flex justify-between items-start flex-col';
           serviceItem.innerHTML = `
-            <div>
-              <span class="font-medium">${service.name}</span>
-              <span class="text-gray-600 ml-2">- ${service.price.toLocaleString()} ${service.currency}</span>
+            <div class="w-full flex justify-between items-center mb-1">
+              <div>
+                <span class="font-medium">${service.name}</span>
+                <span class="text-gray-600 ml-2">- ${service.price.toLocaleString()} ${service.currency}</span>
+              </div>
+              <button type="button" class="remove-service text-red-500 hover:text-red-700" data-index="${index}">
+                Supprimer
+              </button>
             </div>
-            <button type="button" class="remove-service text-red-500 hover:text-red-700" data-index="${index}">
-              Supprimer
-            </button>
+            ${service.description ? `<div class="service-description">${service.description}</div>` : ''}
           `;
           servicesList.appendChild(serviceItem);
         });
