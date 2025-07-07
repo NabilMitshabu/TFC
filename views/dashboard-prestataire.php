@@ -3,13 +3,15 @@ session_start();
 require_once '../includes/db_connect.php';
 
 // Vérification de session
-if (!isset($_SESSION['user']) || $_SESSION['user']['type'] !== 'prestataire') {
-    header("Location: signInPresta.php");
-    exit();
+if (!isset($_SESSION['user']['id'])) {
+    header('Location: signInClient.php');
+    exit;
 }
 
 // ID du prestataire depuis la session
 $prestataire_id = $_SESSION['user']['prestataire_id'];
+
+
 
 try {
     // Récupération des infos du prestataire
@@ -24,7 +26,7 @@ try {
 
     if (!$prestataire) {
         session_destroy();
-        header('Location: signInPresta.php');
+        header('Location: signInClient.php');
         exit();
     }
 
@@ -260,20 +262,8 @@ try {
 </head>
 <body class="bg-gray-50 text-gray-800">
 
-    <header class="bg-white shadow-sm fixed w-full top-0 z-50">
-        <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-blue-600">ClicService</h1>
-            <nav class="flex items-center space-x-4">
-                <button class="text-gray-600 hover:text-blue-500 transition">
-                    <span class="material-icons">settings</span>
-                </button>
-                <button class="text-gray-600 hover:text-blue-500 transition">
-                    <span class="material-icons">notifications</span>
-                </button>
-                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-medium">P</div>
-            </nav>
-        </div>
-    </header>
+    <!-- Header -->
+    <?php require "portions/headerUsers.php" ?>
 
     <main class="min-h-screen flex pt-24 px-4">
         <aside class="w-64 bg-white shadow rounded-lg h-fit sticky top-24 mr-6 hidden md:block">
@@ -305,6 +295,11 @@ try {
                     <a href="#" onclick="showTab('profil')" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item">
                         <span class="material-icons">person</span>
                         <span>Profil</span>
+                    </a>
+
+                    <a href="../controllers/logout.php" class="flex items-center space-x-3 p-3 rounded-lg text-red-500 hover:bg-red-50 font-medium menu-item">
+                        <span class="material-icons">logout</span>
+                        <span>Déconnexion</span>
                     </a>
                 </nav>
 
@@ -349,8 +344,8 @@ try {
                         </div>
                     </div>
                     
-                    <div class="bg-white p-4 rounded-lg border border-gray-200 mb-8">
-                        <canvas id="statusChart" height="150"></canvas>
+                    <div class="bg-white p-4 rounded-lg border border-gray-200 mb-8" style="height: 500px;">
+                        <canvas id="statusChart" height="200"></canvas>
                     </div>
 
                      <div class="bg-white p-6 rounded-lg border border-gray-200">
@@ -636,18 +631,25 @@ try {
                     }]
                 },
                 options: {
-                    responsive: true,
-                    cutout: '70%',
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                boxWidth: 12,
-                                padding: 20
-                            }
-                        }
-                    }
+    responsive: true,
+    maintainAspectRatio: false, // Ajoutez cette ligne
+    cutout: '70%',
+    plugins: {
+        legend: {
+            position: 'bottom',
+            labels: {
+                boxWidth: 12,
+                padding: 20,
+                font: {
+                    size: 20 // Réduire la taille de la police de la légende
                 }
+            }
+        }
+    },
+    layout: {
+        padding: 5 // Réduire l'espacement autour du graphique
+    }
+}
             });
             
             // Set demandes tab as active by default

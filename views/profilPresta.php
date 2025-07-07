@@ -124,6 +124,26 @@ function genererEtoiles($note) {
         .prestataire-card:hover .profile-image {
             transform: scale(1.05);
         }
+        .avis-container {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out;
+        }
+        .avis-container.visible {
+            max-height: 1000px;
+        }
+        .toggle-avis-btn {
+            transition: all 0.3s ease;
+        }
+        .toggle-avis-btn:hover {
+            transform: translateY(-2px);
+        }
+        .toggle-avis-btn i {
+            transition: transform 0.3s ease;
+        }
+        .toggle-avis-btn.active i {
+            transform: rotate(180deg);
+        }
     </style>
 </head>
 <body class="bg-gray-50 font-sans min-h-screen">
@@ -222,40 +242,50 @@ function genererEtoiles($note) {
                 
                 <!-- Avis clients -->
                 <section class="mb-8">
-                    <h3 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
-                        <i class="fas fa-star text-blue-500 mr-2"></i> Avis clients
-                    </h3>
-                    <?php if (!empty($dernieres_evaluations)): ?>
-                        <div class="space-y-4">
-                            <?php foreach ($dernieres_evaluations as $evaluation): ?>
-                                <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-                                    <div class="flex justify-between items-center mb-2">
-                                        <span class="font-medium text-gray-800">
-                                            <?= htmlspecialchars($evaluation['prenom'] . ' ' . htmlspecialchars($evaluation['nom'])) ?>
-                                        </span>
-                                        <span class="text-xs text-gray-500">
-                                            <?= date('d/m/Y', strtotime($evaluation['date_evaluation'])) ?>
-                                        </span>
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800 flex items-center">
+                            <i class="fas fa-star text-blue-500 mr-2"></i> Avis clients
+                        </h3>
+                        <?php if (!empty($dernieres_evaluations)): ?>
+                            <button id="toggleAvisBtn" class="toggle-avis-btn bg-blue-50 text-blue-600 px-4 py-2 rounded-lg flex items-center text-sm font-medium">
+                                Afficher les avis <i class="fas fa-chevron-down ml-2 text-xs"></i>
+                            </button>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <div id="avisContainer" class="avis-container">
+                        <?php if (!empty($dernieres_evaluations)): ?>
+                            <div class="space-y-4">
+                                <?php foreach ($dernieres_evaluations as $evaluation): ?>
+                                    <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <span class="font-medium text-gray-800">
+                                                <?= htmlspecialchars($evaluation['prenom'] . ' ' . htmlspecialchars($evaluation['nom'])) ?>
+                                            </span>
+                                            <span class="text-xs text-gray-500">
+                                                <?= date('d/m/Y', strtotime($evaluation['date_evaluation'])) ?>
+                                            </span>
+                                        </div>
+                                        <div class="flex items-center mb-2">
+                                            <?= genererEtoiles($evaluation['note']) ?>
+                                            <span class="ml-2 text-sm font-medium text-gray-600">
+                                                <?= $evaluation['note'] ?>/5
+                                            </span>
+                                        </div>
+                                        <?php if (!empty($evaluation['commentaire'])): ?>
+                                            <p class="text-gray-700 text-sm mt-2">
+                                                <?= nl2br(htmlspecialchars($evaluation['commentaire'])) ?>
+                                            </p>
+                                        <?php endif; ?>
                                     </div>
-                                    <div class="flex items-center mb-2">
-                                        <?= genererEtoiles($evaluation['note']) ?>
-                                        <span class="ml-2 text-sm font-medium text-gray-600">
-                                            <?= $evaluation['note'] ?>/5
-                                        </span>
-                                    </div>
-                                    <?php if (!empty($evaluation['commentaire'])): ?>
-                                        <p class="text-gray-700 text-sm mt-2">
-                                            <?= nl2br(htmlspecialchars($evaluation['commentaire'])) ?>
-                                        </p>
-                                    <?php endif; ?>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php else: ?>
-                        <div class="bg-gray-50 rounded-xl p-4 text-center text-gray-500">
-                            Aucun avis pour le moment
-                        </div>
-                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php else: ?>
+                            <div class="bg-gray-50 rounded-xl p-4 text-center text-gray-500">
+                                Aucun avis pour le moment
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </section>
 
                 <!-- Bouton de contact -->
@@ -269,6 +299,26 @@ function genererEtoiles($note) {
         </div>
     </div>
 </main>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggleBtn = document.getElementById('toggleAvisBtn');
+        const avisContainer = document.getElementById('avisContainer');
+        
+        if (toggleBtn && avisContainer) {
+            toggleBtn.addEventListener('click', function() {
+                avisContainer.classList.toggle('visible');
+                this.classList.toggle('active');
+                
+                if (avisContainer.classList.contains('visible')) {
+                    this.innerHTML = 'Masquer les avis <i class="fas fa-chevron-up ml-2 text-xs"></i>';
+                } else {
+                    this.innerHTML = 'Afficher les avis <i class="fas fa-chevron-down ml-2 text-xs"></i>';
+                }
+            });
+        }
+    });
+</script>
 
 </body>
 </html>

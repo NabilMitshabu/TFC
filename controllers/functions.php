@@ -168,3 +168,114 @@ function getPastEvaluations($pdo, $client_id) {
     $stmt->execute([$client_id]);
     return $stmt->fetchAll();
 }
+
+
+function toggleFavorite(PDO $pdo, int $userId, int $prestataireId): string {
+    // Vérification plus robuste de l'existence du prestataire
+    $stmt = $pdo->prepare("SELECT id FROM prestataires WHERE id = ? AND etat_compte = 'Validé'");
+    $stmt->execute([$prestataireId]);
+    
+    if (!$stmt->fetch()) {
+        throw new Exception("Prestataire invalide ou non validé");
+    }
+
+    // Vérification de l'existence du favori avec une requête plus efficace
+    $stmt = $pdo->prepare("SELECT id FROM favoris WHERE user_id = ? AND prestataire_id = ? LIMIT 1");
+    $stmt->execute([$userId, $prestataireId]);
+    
+    if ($stmt->fetch()) {
+        // Suppression avec vérification des lignes affectées
+        $stmt = $pdo->prepare("DELETE FROM favoris WHERE user_id = ? AND prestataire_id = ?");
+        $stmt->execute([$userId, $prestataireId]);
+        
+        if ($stmt->rowCount() === 0) {
+            throw new Exception("Échec de la suppression du favori");
+        }
+        return 'removed';
+    } else {
+        // Insertion avec vérification de contrainte unique
+        try {
+            $stmt = $pdo->prepare("INSERT INTO favoris (user_id, prestataire_id, date_ajout) VALUES (?, ?, NOW())");
+            $stmt->execute([$userId, $prestataireId]);
+            return 'added';
+        } catch (PDOException $e) {
+            // Code d'erreur pour violation de contrainte unique
+            if ($e->errorInfo[1] === 1062) {
+                throw new Exception("Ce prestataire est déjà dans vos favoris");
+            }
+            throw $e;
+        }
+    }
+}
+
+
+function countUserFavorites($pdo, $userId) {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM favoris WHERE user_id = ?");
+    $stmt->execute([$userId]);
+    return (int)$stmt->fetchColumn();
+}
+
+
+function getUserFavorites(PDO $pdo, int $userId): array {
+    $stmt = $pdo->prepare("
+        SELECT 
+            f.prestataire_id,
+            u.nom,
+            u.prenom,
+            p.photo_profil,
+            u.prenom,
+            p.photo_profil,
+            p.type_prestataire,
+            p.ville,
+            p.commune,
+            p.telephone,
+            p.description,
+            p.competence,
+            f.date_ajout,
+            ROUND((SELECT AVG(note) FROM evaluations WHERE prestataire_id = p.id), 1) as note_moyenne,
+            (SELECT COUNT(*) FROM evaluations WHERE prestataire_id = p.id) as nombre_avis,
+            (SELECT GROUP_CONCAT(DISTINCT s.nom SEPARATOR ', ') 
+             FROM services s 
+             WHERE s.prestataire_id = p.id) as services
+        FROM 
+            favoris f
+        JOIN 
+            prestataires p ON f.prestataire_id = p.id
+        JOIN 
+            users u ON p.user_id = u.id
+        WHERE 
+            f.user_id = ?
+        GROUP BY
+            f.prestataire_id, u.nom, u.prenom, p.photo_profil, p.type_prestataire,
+            p.ville, p.commune, p.telephone, p.description, p.competence, f.date_ajout
+        ORDER BY
+            f.date_ajout DESC
+    ");
+    $stmt->execute([$userId]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+function startSecureSession() {
+    if (session_status() === PHP_SESSION_NONE) {
+        // Paramètres de session sécurisés
+        session_set_cookie_params([
+            'lifetime' => 86400, // 1 jour
+            'path' => '/',
+            'domain' => $_SERVER['HTTP_HOST'],
+            'secure' => true, // En production, mettre à true pour HTTPS
+            'httponly' => true,
+            'samesite' => 'Strict'
+        ]);
+        
+        session_name('SECURE_SESSION');
+        session_start();
+        
+        // Régénération périodique de l'ID de session
+        if (!isset($_SESSION['created'])) {
+            $_SESSION['created'] = time();
+        } else if (time() - $_SESSION['created'] > 1800) { // 30 minutes
+            session_regenerate_id(true);
+            $_SESSION['created'] = time();
+        }
+    }
+}

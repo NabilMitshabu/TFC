@@ -1,5 +1,16 @@
 
 <?php
+require_once(__DIR__ . '/api/check_auth.php');
+
+// Démarrage de session et génération du token CSRF
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Générer un nouveau token CSRF s'il n'existe pas
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 include 'includes/db_connect.php';
 
 // Récupération des services pour la section principale
@@ -45,21 +56,23 @@ $bannerServices = $bannerServicesQuery->fetchAll(PDO::FETCH_ASSOC);
         <nav class="flex items-center space-x-6 text-sm font-medium text-white">
             <a href="/index.php" class="hover:text-blue-200 transition">Accueil</a>
             
-            <?php if (isset($_SESSION['user'])): ?>
-                <!-- Menu utilisateur connecté -->
-                <div class="relative group">
-                    <button class="flex items-center space-x-2 focus:outline-none hover:text-blue-200 transition">
-                        <span class="hidden md:inline"><?= htmlspecialchars($_SESSION['user']['prenom']) ?></span>
-                        <img src="https://ui-avatars.com/api/?name=<?= urlencode($_SESSION['user']['prenom'] . '+' . $_SESSION['user']['nom']) ?>&background=ffffff&color=3b82f6" 
-                             alt="Profil" class="w-8 h-8 rounded-full border-2 border-white">
-                    </button>
-                    <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden group-hover:block border border-gray-100">
-                        <a href="dashboard.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition">Tableau de bord</a>
-                        <a href="profil.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition">Mon profil</a>
-                        <a href="logout.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition">Déconnexion</a>
-                    </div>
+          <?php if (isset($_SESSION['user'])): ?>
+            <!-- Menu utilisateur connecté -->
+            <div class="relative group">
+                <button class="flex items-center space-x-2 focus:outline-none hover:text-blue-200 transition">
+                    <meta name="csrf-token" content="<?= isset($_SESSION['csrf_token']) ? htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES) : '' ?>">
+                    <img src="https://ui-avatars.com/api/?name=<?= urlencode($_SESSION['user']['prenom'] ?? '') . '+' . urlencode($_SESSION['user']['nom'] ?? '') ?>&background=ffffff&color=3b82f6" 
+                        alt="Profil" class="w-8 h-8 rounded-full border-2 border-white" />
+                </button>
+                <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden group-hover:block border border-gray-100">
+                    <a href="dashboard.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition">Tableau de bord</a>
+                    <a href="profil.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition">Mon profil</a>
+                    <a href="logout.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition">Déconnexion</a>
                 </div>
-            <?php else: ?>
+            </div>
+        <?php else: ?>
+
+
                 <!-- Menu visiteur -->
                 <a href="views/signInClient.php" class="hover:text-blue-200 transition">Connexion</a>
                 <a href="views/inscription.php" class="hover:text-blue-200 transition">Inscription</a>
@@ -286,6 +299,8 @@ $bannerServices = $bannerServicesQuery->fetchAll(PDO::FETCH_ASSOC);
   // Démarrer la rotation (toutes les 3 secondes)
   rotateServices(); // Affiche immédiatement le premier service
   setInterval(rotateServices, 3000);
+
+
 </script>
 
 </body>

@@ -1,4 +1,5 @@
 <?php 
+
 // Vérifie si la session n'est pas déjà démarrée avant de l'initialiser
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -8,7 +9,7 @@ if (session_status() === PHP_SESSION_NONE) {
     <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
         <a href="index.php" class="text-xl font-bold text-blue-600">ClicService</a>
         <nav class="flex items-center space-x-6 text-sm font-medium text-gray-600">
-            <a href="index.php" class="hover:text-blue-500">Accueil</a>
+            <a href="/../index.php" class="hover:text-blue-500">Accueil</a>
             
             <?php if (!empty($_SESSION['user'])): ?>
                 <div class="relative group">
@@ -31,8 +32,8 @@ if (session_status() === PHP_SESSION_NONE) {
                     </div>
                 </div>
             <?php else: ?>
-                <a href="login.php" class="hover:text-blue-500">Connexion</a>
-                <a href="register.php" class="hover:text-blue-500">Inscription</a>
+                <a href="/../views/signInClient.php" class="hover:text-blue-500">Connexion</a>
+                <a href="/../views/signUpClient.php" class="hover:text-blue-500">Inscription</a>
             <?php endif; ?>
         </nav>
     </div>

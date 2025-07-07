@@ -1,5 +1,10 @@
 <?php
 require_once '../includes/db_connect.php';
+require_once '../controllers/functions.php';
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Récupérer le service_id depuis l'URL
 $service_id = isset($_GET['service_id']) ? (int)$_GET['service_id'] : null;
@@ -71,6 +76,7 @@ try {
   <title>Tous nos prestataires</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<meta name="csrf-token" content="<?= isset($_SESSION['csrf_token']) ? htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES) : '' ?>">
   <style>
     .star-icon {
       display: inline-block;
@@ -235,7 +241,7 @@ try {
                     class="flex-1 text-center bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-medium transition flex items-center justify-center text-sm">
                     <i class="fas fa-eye mr-2 text-xs"></i> Voir profil
                 </a>
-                <button class="w-10 h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-xl transition">
+                <button class="favorite-btn w-10 h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-xl transition" data-prestataire-id="<?= $prestataire['prestataire_id'] ?>">
                     <i class="far fa-heart text-gray-500"></i>
                 </button>
                 </div>
@@ -253,5 +259,139 @@ try {
   <?php
     require "portions/footer.php" ?>
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Dictionnaire pour suivre l'état de traitement de chaque bouton
+    const processingStates = {};
+    
+    document.addEventListener('click', async function(e) {
+        const btn = e.target.closest('.favorite-btn');
+        if (!btn) return;
+        
+        const prestataireId = btn.dataset.prestataireId;
+        const heartIcon = btn.querySelector('i');
+        
+        // Vérifier si déjà en traitement
+        if (processingStates[prestataireId]) return;
+        processingStates[prestataireId] = true;
+        
+        // Récupérer le token CSRF
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+        
+        if (!csrfToken) {
+            console.error('CSRF token manquant');
+            alert('Erreur de sécurité. Veuillez rafraîchir la page.');
+            processingStates[prestataireId] = false;
+            return;
+        }
+
+        // Désactiver le bouton pendant le traitement
+        btn.disabled = true;
+        heartIcon.classList.add('opacity-50');
+
+        try {
+            const response = await fetch('../controllers/favorites.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({ 
+                    prestataire_id: prestataireId 
+                })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Erreur serveur');
+            }
+            
+            const data = await response.json();
+            
+            // Mise à jour de l'interface
+            if (data.action === 'added') {
+                heartIcon.classList.replace('far', 'fas');
+                heartIcon.classList.add('text-red-500');
+                btn.setAttribute('aria-label', 'Retirer des favoris');
+            } else {
+                heartIcon.classList.replace('fas', 'far');
+                heartIcon.classList.remove('text-red-500');
+                btn.setAttribute('aria-label', 'Ajouter aux favoris');
+            }
+            
+            // Animation de feedback
+            heartIcon.classList.add('animate-ping');
+            setTimeout(() => {
+                heartIcon.classList.remove('animate-ping');
+            }, 500);
+            
+            // Mettre à jour le compteur de favoris si présent dans le DOM
+            const favoritesCounter = document.getElementById('favorites-counter');
+            if (favoritesCounter) {
+                favoritesCounter.textContent = data.total_favorites;
+            }
+            
+        } catch (error) {
+            console.error('Erreur:', error);
+            
+            // Afficher un toast d'erreur (si vous avez un système de notifications)
+            if (typeof showToast === 'function') {
+                showToast({
+                    type: 'error',
+                    message: error.message || 'Une erreur est survenue'
+                });
+            } else {
+                // Fallback simple
+                alert(error.message || 'Une erreur est survenue');
+            }
+            
+            // Revert visual changes if error
+            heartIcon.classList.toggle('far');
+            heartIcon.classList.toggle('fas');
+            heartIcon.classList.toggle('text-red-500');
+            
+        } finally {
+            // Réactiver le bouton
+            btn.disabled = false;
+            heartIcon.classList.remove('opacity-50');
+            processingStates[prestataireId] = false;
+        }
+    });
+
+    // Précharger les états des favoris au chargement de la page
+    async function loadInitialFavoritesStates() {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+        if (!csrfToken) return;
+        
+        try {
+            const response = await fetch('../controllers/favorites.php?action=get_favorites', {
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken
+                }
+            });
+            
+            if (response.ok) {
+                const favorites = await response.json();
+                
+                document.querySelectorAll('.favorite-btn').forEach(btn => {
+                    const prestataireId = btn.dataset.prestataireId;
+                    const heartIcon = btn.querySelector('i');
+                    
+                    if (favorites.includes(parseInt(prestataireId))) {
+                        heartIcon.classList.replace('far', 'fas');
+                        heartIcon.classList.add('text-red-500');
+                        btn.setAttribute('aria-label', 'Retirer des favoris');
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Erreur chargement favoris:', error);
+        }
+    }
+    
+    // Appeler la fonction de chargement initial
+    loadInitialFavoritesStates();
+});
+</script>
 </body>
 </html>
