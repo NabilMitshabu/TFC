@@ -1,3 +1,12 @@
+<?php
+session_start();
+// Pour inscriptionPresta2.php et inscriptionPresta3.php
+if (empty($_SESSION['inscription_data']) || $_SESSION['inscription_data']['etape'] < 1) {
+    header("Location: inscriptionPresta1.php");
+    exit;
+}
+?>
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -31,7 +40,7 @@
 
       <form method="POST" enctype="multipart/form-data" action="../controllers/inscriptionPresta.php">
         <div class="mb-4">
-          <label class="block font-medium mb-1">Carte d'identité / SIRET</label>
+          <label class="block font-medium mb-1">Carte d'identité </label>
           <input type="file" name="carte_identite" accept=".jpg,.jpeg,.png,.pdf" class="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring focus:ring-blue-300" required />
           <p class="text-sm text-gray-500 mt-1">Formats acceptés : JPG, PNG, PDF (max 2MB)</p>
         </div>

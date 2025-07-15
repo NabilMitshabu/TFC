@@ -10,7 +10,7 @@
 
   <section class="min-h-screen flex items-center justify-center px-4 py-8 pt-24">
     <div class="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md">
-      <h2 class="text-3xl font-bold text-blue-700 mb-6 text-center">Connexion Prestataire</h2>
+      <h2 class="text-3xl font-bold text-blue-700 mb-6 text-center">Connexion</h2>
 
       <div id="error-message" class="hidden bg-red-100 text-red-700 p-3 mb-4 rounded"></div>
 

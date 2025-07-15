@@ -27,9 +27,7 @@ $pendingProviders = getPendingProviders($pdo);
 <div class="bg-white p-6 rounded-lg shadow mb-8">
     <div class="flex justify-between items-center mb-6">
         <h3 class="text-xl font-bold text-blue-800">Liste des prestataires en attente</h3>
-        <button class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" id="export-pending">
-            <i class="fas fa-file-export mr-2"></i>Exporter
-        </button>
+       
     </div>
 
     <div class="overflow-x-auto">

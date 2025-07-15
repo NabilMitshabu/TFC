@@ -1,32 +1,21 @@
+
 <?php
+
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+
+session_start();
 require_once '../includes/db_connect.php';
+
+if (empty($_SESSION['inscription_data']) || ($_SESSION['inscription_data']['etape'] ?? 0) < 1) {
+    header("Location: inscriptionPresta1.php");
+    exit;
+}
 
 // Récupérer les catégories de services depuis la base de données
 $categoriesQuery = $pdo->query("SELECT DISTINCT nom FROM servicesacc");
 $categories = $categoriesQuery->fetchAll(PDO::FETCH_COLUMN);
-
-// Traitement si le formulaire est soumis
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $ville = $_POST['ville'] ?? '';
-    $commune = $_POST['commune'] ?? '';
-    $servicesJson = $_POST['services'] ?? '[]';
-
-    $services = json_decode($servicesJson, true);
-
-    echo "<h1>Résultat reçu :</h1>";
-    echo "<p><strong>Ville :</strong> " . htmlspecialchars($ville) . "</p>";
-    echo "<p><strong>Commune :</strong> " . htmlspecialchars($commune) . "</p>";
-    echo "<h2>Services :</h2><ul>";
-    foreach ($services as $s) {
-        echo "<li>" . htmlspecialchars($s['name']) . " - " . intval($s['price']) . " " . htmlspecialchars($s['currency']);
-        if (!empty($s['description'])) {
-            echo "<p>Description: " . htmlspecialchars($s['description']) . "</p>";
-        }
-        echo "</li>";
-    }
-    echo "</ul>";
-    exit;
-}
 ?>
 
 <!DOCTYPE html>
@@ -81,6 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           Aucun service ajouté pour le moment
         </div>
       </div>
+
 
       <div class="mb-4">
         <label class="block font-medium mb-1">Catégories de services</label>
@@ -145,6 +135,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     const addServiceBtn = document.getElementById('addServiceBtn');
     const servicesData = document.getElementById('servicesData');
 
+    // Stocker les noms personnalisés déjà ajoutés pour éviter de les exiger à nouveau
+    let customNamesAdded = [];
+
+    customServiceName.addEventListener('input', function () {
+      // Si le nom personnalisé existe déjà dans la liste, rendre le champ non requis
+      if (customNamesAdded.includes(this.value.trim().toLowerCase())) {
+        customServiceName.required = false;
+      }
+    });
+
+    addServiceBtn.addEventListener('click', function () {
+      const category = serviceCategory.value;
+      const price = servicePrice.value.trim();
+      const currency = serviceCurrency.value;
+      const serviceName = category === 'autre' ? customServiceName.value.trim() : category;
+      const description = serviceDescription.value.trim();
+
+      if (!category || category === '-- Sélectionner --') {
+        alert('Veuillez sélectionner une catégorie de service');
+        return;
+      }
+
+      if (category === 'autre' && !serviceName) {
+        alert('Veuillez entrer un nom pour votre service personnalisé');
+        return;
+      }
+
+      if (!price || isNaN(price) || parseInt(price) <= 0) {
+        alert('Veuillez entrer un prix valide');
+        return;
+      }
+
+      const alreadyExists = services.some(s => s.name.toLowerCase() === serviceName.toLowerCase());
+      if (alreadyExists) {
+        alert('Ce service a déjà été ajouté.');
+        return;
+      }
+
+      const service = {
+        name: serviceName,
+        price: parseFloat(price),
+        currency: currency,
+        category: category === 'autre' ? 'custom' : category,
+        description: description
+      };
+
+      services.push(service);
+      updateServicesList();
+      updateHiddenField();
+
+      // Si c'est un service personnalisé, enregistrer le nom pour ne plus exiger le champ
+      if (category === 'autre' && serviceName) {
+        customNamesAdded.push(serviceName.toLowerCase());
+        customServiceName.required = false;
+      }
+
+      // Reset fields
+      serviceCategory.value = '';
+      servicePrice.value = '';
+      serviceCurrency.value = 'CDF';
+      serviceDescription.value = '';
+      customServiceName.value = '';
+      // Masquer le champ personnalisé seulement si ce n'est pas "autre"
+      if (category !== 'autre') {
+        customServiceContainer.classList.add('hidden');
+      }
+    });
+
     serviceCategory.addEventListener('change', function () {
       if (this.value === 'autre') {
         customServiceContainer.classList.remove('hidden');
@@ -185,7 +243,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
       const service = {
         name: serviceName,
-        price: parseInt(price),
+        price: parseFloat(price),
         currency: currency,
         category: category === 'autre' ? 'custom' : category,
         description: description
@@ -193,21 +251,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
       services.push(service);
       updateServicesList();
+      updateHiddenField();
 
-      // Réinitialisation des champs
+      // Reset fields
       serviceCategory.value = '';
       servicePrice.value = '';
       serviceCurrency.value = 'CDF';
       serviceDescription.value = '';
       customServiceName.value = '';
-      customServiceContainer.classList.add('hidden');
+      // Masquer le champ personnalisé seulement si ce n'est pas "autre"
+      if (category !== 'autre') {
+        customServiceContainer.classList.add('hidden');
+      }
     });
 
     function updateServicesList() {
       servicesList.innerHTML = '';
       if (services.length > 0) {
         emptyMessage.classList.add('hidden');
-
         services.forEach((service, index) => {
           const serviceItem = document.createElement('div');
           serviceItem.className = 'service-item p-3 flex justify-between items-start flex-col';
@@ -217,9 +278,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <span class="font-medium">${service.name}</span>
                 <span class="text-gray-600 ml-2">- ${service.price.toLocaleString()} ${service.currency}</span>
               </div>
-              <button type="button" class="remove-service text-red-500 hover:text-red-700" data-index="${index}">
-                Supprimer
-              </button>
+              <button type="button" class="remove-service text-red-500 hover:text-red-700" data-index="${index}">Supprimer</button>
             </div>
             ${service.description ? `<div class="service-description">${service.description}</div>` : ''}
           `;
@@ -231,15 +290,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             const index = parseInt(this.getAttribute('data-index'));
             services.splice(index, 1);
             updateServicesList();
+            updateHiddenField();
           });
         });
       } else {
         emptyMessage.classList.remove('hidden');
         servicesList.appendChild(emptyMessage);
       }
+    }
 
+    function updateHiddenField() {
       servicesData.value = JSON.stringify(services);
     }
+
+    // Forcer la mise à jour juste avant soumission
+    document.querySelector("form").addEventListener("submit", function (e) {
+      updateHiddenField();
+      if (services.length === 0) {
+        e.preventDefault();
+        alert("Veuillez ajouter au moins un service avant de confirmer.");
+      }
+    });
   });
 </script>
 

@@ -14,14 +14,15 @@ if (session_status() === PHP_SESSION_NONE) {
             <?php if (!empty($_SESSION['user'])): ?>
                 <div class="relative group">
                     <button class="flex items-center space-x-2 focus:outline-none">
-                        <span class="hidden md:inline">
-                            <?= htmlspecialchars($_SESSION['user']['prenom'] ?? $_SESSION['user']['nom']) ?>
-                        </span>
-                        <img src="https://ui-avatars.com/api/?name=<?= 
+                         <span class="hidden md:inline">
+                                <?= htmlspecialchars($_SESSION['user']['prenom'] ?? $_SESSION['user']['nom'] ?? 'Profil') ?>
+                            </span>
+                           <img src="https://ui-avatars.com/api/?name=<?= 
                             urlencode(
-                                ($_SESSION['user']['prenom'] ?? '') . '+' . $_SESSION['user']['nom']
+                                (!empty($_SESSION['user']['prenom']) ? substr($_SESSION['user']['prenom'], 0, 1) : '') . 
+                                (!empty($_SESSION['user']['nom']) ? substr($_SESSION['user']['nom'], 0, 1) : 'U')
                             ) ?>&background=3b82f6&color=fff" 
-                             alt="Profil" class="w-8 h-8 rounded-full">
+                            alt="Profil" class="w-8 h-8 rounded-full">
                     </button>
                     <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden group-hover:block">
                         <a href="<?= ($_SESSION['user']['role'] ?? 'client') === 'prestataire' ? 'dashboard-prestataire.php' : 'profilClient.php' ?>" 

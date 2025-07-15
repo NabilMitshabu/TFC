@@ -6,55 +6,82 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Récupérer le service_id depuis l'URL
+// Récupérer les paramètres
 $service_id = isset($_GET['service_id']) ? (int)$_GET['service_id'] : null;
+$show_custom = isset($_GET['show_custom']) ? (int)$_GET['show_custom'] : 0;
 
 try {
-    // Requête de base
-    $sql = "
-        SELECT 
-            sacc.nom AS service_nom,
-            p.id AS prestataire_id,
-            p.ville,
-            p.commune,
-            p.photo_profil,
-            p.type_prestataire,
-            u.nom,
-            u.prenom,
-            serv.tarif,
-            serv.devise,
-            AVG(e.note) AS note_moyenne,
-            COUNT(e.id) AS nombre_avis
-        FROM servicesacc sacc
-        JOIN services serv ON sacc.nom = serv.nom
-        JOIN prestataires p ON serv.prestataire_id = p.id
-        JOIN users u ON p.user_id = u.id
-        LEFT JOIN evaluations e ON p.id = e.prestataire_id
-        WHERE p.etat_compte = 'Validé'
-    ";
-    
-    // Ajouter le filtre si un service_id est spécifié
-    if ($service_id) {
-        $sql .= " AND sacc.id = :service_id";
+    if ($show_custom) {
+        // Requête pour les services personnalisés uniquement
+        $sql = "
+            SELECT 
+                'Autre' AS service_nom,
+                p.id AS prestataire_id,
+                p.ville,
+                p.commune,
+                p.photo_profil,
+                p.type_prestataire,
+                u.nom,
+                u.prenom,
+                serv.tarif,
+                serv.devise,
+                serv.nom AS nom_service_personnalise,
+                serv.description AS description_service,
+                AVG(e.note) AS note_moyenne,
+                COUNT(e.id) AS nombre_avis
+            FROM services serv
+            JOIN prestataires p ON serv.prestataire_id = p.id
+            JOIN users u ON p.user_id = u.id
+            LEFT JOIN evaluations e ON p.id = e.prestataire_id
+            WHERE p.etat_compte = 'Validé'
+            AND serv.is_custom = 1
+            GROUP BY p.id, u.nom, u.prenom, serv.tarif, serv.devise, serv.nom, serv.description
+            ORDER BY note_moyenne DESC
+        ";
+    } else {
+        // Requête pour les services standards
+        $sql = "
+            SELECT 
+                sacc.nom AS service_nom,
+                p.id AS prestataire_id,
+                p.ville,
+                p.commune,
+                p.photo_profil,
+                p.type_prestataire,
+                u.nom,
+                u.prenom,
+                serv.tarif,
+                serv.devise,
+                NULL AS nom_service_personnalise,
+                NULL AS description_service,
+                AVG(e.note) AS note_moyenne,
+                COUNT(e.id) AS nombre_avis
+            FROM servicesacc sacc
+            JOIN services serv ON sacc.nom = serv.nom
+            JOIN prestataires p ON serv.prestataire_id = p.id
+            JOIN users u ON p.user_id = u.id
+            LEFT JOIN evaluations e ON p.id = e.prestataire_id
+            WHERE p.etat_compte = 'Validé'
+        ";
+        
+        if ($service_id) {
+            $sql .= " AND sacc.id = :service_id";
+        }
+        
+        $sql .= " GROUP BY sacc.nom, p.id, u.nom, u.prenom, serv.tarif, serv.devise
+                  ORDER BY sacc.nom, note_moyenne DESC";
     }
     
-    $sql .= " GROUP BY sacc.nom, p.id, u.nom, u.prenom, serv.tarif, serv.devise
-              ORDER BY sacc.nom, note_moyenne DESC";
-    
-    // Préparation de la requête
     $stmt = $pdo->prepare($sql);
     
-    // Liaison du paramètre si nécessaire
-    if ($service_id) {
+    if ($service_id && !$show_custom) {
         $stmt->bindParam(':service_id', $service_id, PDO::PARAM_INT);
     }
     
-    // Exécution
     $stmt->execute();
-    
     $servicesData = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Organiser les données par service
+    // Organiser les données
     $services = [];
     foreach ($servicesData as $row) {
         $serviceName = $row['service_nom'];
@@ -76,7 +103,7 @@ try {
   <title>Tous nos prestataires</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-<meta name="csrf-token" content="<?= isset($_SESSION['csrf_token']) ? htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES) : '' ?>">
+  <meta name="csrf-token" content="<?= isset($_SESSION['csrf_token']) ? htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES) : '' ?>">
   <style>
     .star-icon {
       display: inline-block;
@@ -108,7 +135,7 @@ try {
 <body class="bg-gray-50 font-sans min-h-screen">
 
   <!-- Header -->
-   <?php require "portions/header.php" ?>
+  <?php require "portions/header.php" ?>
 
   <!-- Contenu principal -->
   <main class="pt-28 pb-16 max-w-7xl mx-auto px-4">
@@ -143,110 +170,115 @@ try {
             <div class="flex items-center justify-between mb-8">
               <div>
                 <h2 class="text-2xl font-bold text-gray-800">
-                  <?= htmlspecialchars($serviceName) ?>
+                  <?= $serviceName === 'Autre' ? 'Autres services personnalisés' : htmlspecialchars($serviceName) ?>
                 </h2>
                 <p class="text-sm text-gray-500 mt-1">
                   <?= count($prestataires) ?> prestataire<?= count($prestataires) > 1 ? 's' : '' ?> disponible<?= count($prestataires) > 1 ? 's' : '' ?>
                 </p>
               </div>
-              <a href="prestataires.php?service_nom=<?= urlencode($serviceName) ?>" 
-                 class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
-                Voir tous <i class="fas fa-arrow-right ml-1 text-xs"></i>
-              </a>
+              <?php if ($serviceName !== 'Autre'): ?>
+                <a href="prestataires.php?service_nom=<?= urlencode($serviceName) ?>" 
+                   class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
+                  Voir tous <i class="fas fa-arrow-right ml-1 text-xs"></i>
+                </a>
+              <?php endif; ?>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                <?php foreach ($prestataires as $prestataire): 
-                // Définir les valeurs par défaut AVANT utilisation
+              <?php foreach ($prestataires as $prestataire): 
+                // Définir les valeurs par défaut
                 $note = $prestataire['note_moyenne'] ?? 0;
-                $nombre_avis = $prestataire['nombre_avis'] ?? 0; // Initialisation explicite
+                $nombre_avis = $prestataire['nombre_avis'] ?? 0;
                 
                 // Gestion de la photo de profil
-                $photo_profil = 'https://cdn-icons-png.flaticon.com/512/219/219969.png'; // Image par défaut
+                $photo_profil = 'https://cdn-icons-png.flaticon.com/512/219/219969.png';
                 if (!empty($prestataire['photo_profil'])) {
                     if (strpos($prestataire['photo_profil'], 'http') === 0) {
-                        $photo_profil = $prestataire['photo_profil']; // URL externe
+                        $photo_profil = $prestataire['photo_profil'];
                     } else {
-                        $photo_profil = '../uploads/' . $prestataire['photo_profil']; // Chemin local
+                        $photo_profil = '../uploads/' . $prestataire['photo_profil'];
                     }
                 }
-            ?>
-                <div class="prestataire-card bg-white rounded-2xl shadow-md overflow-hidden flex" style="max-width: 500px;">
-                <!-- Partie gauche avec l'image de profil -->
-                <div class="w-1/3 bg-gradient-to-b from-blue-50 to-blue-100 flex flex-col items-center justify-center p-4 relative">
-                    <img src="<?= $photo_profil ?>"
-                        alt="<?= htmlspecialchars($prestataire['prenom'] . ' ' . $prestataire['nom']) ?>"
-                        class="profile-image w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg">
-                    
-                    <?php if ($prestataire['type_prestataire'] === 'entreprise'): ?>
-                    <span class="mt-3 bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full flex items-center">
-                        <i class="fas fa-building mr-1 text-xs"></i> Entreprise
-                    </span>
-                    <?php else: ?>
-                    <span class="mt-3 bg-green-100 text-green-800 text-xs font-semibold px-3 py-1 rounded-full flex items-center">
-                        <i class="fas fa-user-tie mr-1 text-xs"></i> Indépendant
-                    </span>
-                    <?php endif; ?>
-                </div>
-  
-            <!-- Partie droite avec les détails -->
-            <div class="w-2/3 p-5">
-                <h3 class="font-bold text-gray-800 text-lg mb-1 font-sans"><?= htmlspecialchars($prestataire['prenom'] . ' ' . $prestataire['nom']) ?></h3>
                 
-                <div class="flex items-center mb-3">
-                <div class="flex mr-2">
-                    <?php 
-                    if ($nombre_avis > 0) {
-                        $note_entiere = floor($note);
-                        $has_half_star = ($note - $note_entiere) >= 0.5;
-                        $empty_stars = 5 - $note_entiere - ($has_half_star ? 1 : 0);
-                        
-                        for ($i = 0; $i < $note_entiere; $i++): ?>
-                            <i class="fas fa-star text-yellow-400 text-sm"></i>
-                        <?php endfor; 
-                        
-                        if ($has_half_star): ?>
-                            <i class="fas fa-star-half-alt text-yellow-400 text-sm"></i>
-                        <?php endif;
-                        
-                        for ($i = 0; $i < $empty_stars; $i++): ?>
-                            <i class="far fa-star text-gray-300 text-sm"></i>
-                        <?php endfor;
-                    } else {
-                        for ($i = 0; $i < 5; $i++): ?>
-                            <i class="far fa-star text-gray-300 text-sm"></i>
-                        <?php endfor;
-                    }
-                    ?>
+                // Afficher le nom du service personnalisé si c'est un service "Autre"
+                $serviceDisplayName = ($prestataire['service_nom'] === 'Autre') 
+                    ? htmlspecialchars($prestataire['nom_service_personnalise']) 
+                    : htmlspecialchars($prestataire['service_nom']);
+              ?>
+                <div class="prestataire-card bg-white rounded-2xl shadow-md overflow-hidden flex" style="max-width: 500px;">
+                  <!-- Partie gauche avec l'image de profil -->
+                  <div class="w-1/3 bg-gradient-to-b from-blue-50 to-blue-100 flex flex-col items-center justify-center p-4 relative">
+                      <img src="<?= $photo_profil ?>"
+                          alt="<?= htmlspecialchars($prestataire['prenom'] . ' ' . $prestataire['nom']) ?>"
+                          class="profile-image w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg">
+                      
+                      <?php if ($prestataire['type_prestataire'] === 'entreprise'): ?>
+                      <span class="mt-3 bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full flex items-center">
+                          <i class="fas fa-building mr-1 text-xs"></i> Entreprise
+                      </span>
+                      <?php else: ?>
+                      <span class="mt-3 bg-green-100 text-green-800 text-xs font-semibold px-3 py-1 rounded-full flex items-center">
+                          <i class="fas fa-user-tie mr-1 text-xs"></i> Indépendant
+                      </span>
+                      <?php endif; ?>
+                  </div>
+    
+                  <!-- Partie droite avec les détails -->
+                  <div class="w-2/3 p-5">
+                      <h3 class="font-bold text-gray-800 text-lg mb-1 font-sans">
+                          <?= htmlspecialchars($prestataire['prenom'] . ' ' . $prestataire['nom']) ?>
+                          <?php if ($prestataire['service_nom'] === 'Autre'): ?>
+                              <span class="block text-sm text-gray-500 mt-1"><?= $serviceDisplayName ?></span>
+                          <?php endif; ?>
+                      </h3>
+                      
+                      <div class="flex items-center mb-3">
+                      <div class="flex mr-2">
+                          <?php 
+                          if ($nombre_avis > 0) {
+                              $note_entiere = floor($note);
+                              $has_half_star = ($note - $note_entiere) >= 0.5;
+                              $empty_stars = 5 - $note_entiere - ($has_half_star ? 1 : 0);
+                              
+                              for ($i = 0; $i < $note_entiere; $i++): ?>
+                                  <i class="fas fa-star text-yellow-400 text-sm"></i>
+                              <?php endfor; 
+                              
+                              if ($has_half_star): ?>
+                                  <i class="fas fa-star-half-alt text-yellow-400 text-sm"></i>
+                              <?php endif;
+                              
+                              for ($i = 0; $i < $empty_stars; $i++): ?>
+                                  <i class="far fa-star text-gray-300 text-sm"></i>
+                              <?php endfor;
+                          } else {
+                              for ($i = 0; $i < 5; $i++): ?>
+                                  <i class="far fa-star text-gray-300 text-sm"></i>
+                              <?php endfor;
+                          }
+                          ?>
+                      </div>
+                      <span class="text-xs text-gray-600 font-medium">
+                          <?= $nombre_avis > 0 ? number_format($note, 1).' ('.$nombre_avis.' avis)' : 'Aucun avis' ?>
+                      </span>
+                      </div>
+    
+                      <div class="flex items-center text-sm text-gray-600 mb-4 font-medium">
+                      <i class="fas fa-map-marker-alt mr-2 text-blue-500"></i>
+                      <span><?= htmlspecialchars($prestataire['ville']) ?>, <?= htmlspecialchars($prestataire['commune']) ?></span>
+                      </div>
+    
+                      <div class="flex space-x-3">
+                      <a href="profilPresta.php?id=<?= $prestataire['prestataire_id'] ?>" 
+                          class="flex-1 text-center bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-medium transition flex items-center justify-center text-sm">
+                          <i class="fas fa-eye mr-2 text-xs"></i> Voir profil
+                      </a>
+                      <button class="favorite-btn w-10 h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-xl transition" data-prestataire-id="<?= $prestataire['prestataire_id'] ?>">
+                          <i class="far fa-heart text-gray-500"></i>
+                      </button>
+                      </div>
+                  </div>
                 </div>
-                <span class="text-xs text-gray-600 font-medium">
-                    <?= $nombre_avis > 0 ? number_format($note, 1).' ('.$nombre_avis.' avis)' : 'Aucun avis' ?>
-                </span>
-                </div>
-
-                <div class="flex items-center text-sm text-gray-600 mb-4 font-medium">
-                <i class="fas fa-map-marker-alt mr-2 text-blue-500"></i>
-                <span><?= htmlspecialchars($prestataire['ville']) ?>, <?= htmlspecialchars($prestataire['commune']) ?></span>
-                </div>
-
-                <!-- <div class="flex justify-between items-center bg-blue-50 rounded-xl p-3 mb-4">
-                <span class="text-sm font-medium text-gray-600">Tarif</span>
-                <span class="text-green-600 font-bold">
-                   <?= number_format($prestataire['tarif'] ?? 0, 2) ?> <?= $prestataire['devise'] === 'USD' ? '$' : 'CDF' ?>
-                </span>
-                </div> -->
-
-                <div class="flex space-x-3">
-                <a href="profilPresta.php?id=<?= $prestataire['prestataire_id'] ?>" 
-                    class="flex-1 text-center bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-medium transition flex items-center justify-center text-sm">
-                    <i class="fas fa-eye mr-2 text-xs"></i> Voir profil
-                </a>
-                <button class="favorite-btn w-10 h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-xl transition" data-prestataire-id="<?= $prestataire['prestataire_id'] ?>">
-                    <i class="far fa-heart text-gray-500"></i>
-                </button>
-                </div>
-            </div>
-            </div>
               <?php endforeach; ?>
             </div>
           </section>
@@ -256,8 +288,7 @@ try {
   </main>
 
   <!-- Footer -->
-  <?php
-    require "portions/footer.php" ?>
+  <?php require "portions/footer.php" ?>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -268,7 +299,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const btn = e.target.closest('.favorite-btn');
         if (!btn) return;
         
-        const prestataireId = btn.dataset.prestataireId;
+        const prestataireId = btn.dataset.prestataire-id;
         const heartIcon = btn.querySelector('i');
         
         // Vérifier si déjà en traitement
@@ -374,7 +405,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const favorites = await response.json();
                 
                 document.querySelectorAll('.favorite-btn').forEach(btn => {
-                    const prestataireId = btn.dataset.prestataireId;
+                    const prestataireId = btn.dataset.prestataire-id;
                     const heartIcon = btn.querySelector('i');
                     
                     if (favorites.includes(parseInt(prestataireId))) {

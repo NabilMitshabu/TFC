@@ -57,27 +57,31 @@ function getNotifications(PDO $pdo, int $userId, int $limit = 5): array {
 }
 
 
-function getRecentMessages(PDO $pdo, int $userId, int $limit = 3): array {
-    $limit = (int) $limit; // sécurisation
-    $stmt = $pdo->prepare("
-        SELECT m.*, u.nom as sender_name, p.photo_profil as sender_photo
-        FROM messages m
-        JOIN users u ON m.sender_id = u.id
-        LEFT JOIN prestataires p ON u.id = p.user_id
-        WHERE m.recipient_id = ?
-        ORDER BY m.date_envoi DESC
-        LIMIT $limit
-    ");
-    $stmt->execute([$userId]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+
+if (!function_exists('getProfileImage')) {
+    function getProfileImage($prenom, $nom, $photo = null) {
+        if (!empty($photo)) {
+            if (filter_var($photo, FILTER_VALIDATE_URL)) {
+                return $photo;
+            }
+
+            $uploadPath = '/uploads/' . ltrim($photo, '/');
+            if (file_exists(__DIR__ . '/../' . $uploadPath)) {
+                return $uploadPath;
+            }
+        }
+
+        $initials = '';
+        if (!empty($prenom)) $initials .= substr($prenom, 0, 1);
+        if (!empty($nom)) $initials .= substr($nom, 0, 1);
+
+        return "https://ui-avatars.com/api/?name=" . urlencode($initials ?: 'U') . "&background=3b82f6&color=fff";
+    }
 }
 
 
 
-
-function getProfileImage(?string $photo, string $name): string {
-    return $photo ?: 'https://ui-avatars.com/api/?name=' . urlencode($name) . '&background=random&color=fff&size=128';
-}
 
 function timeAgo(string $datetime): string {
     $time = strtotime($datetime);
@@ -113,16 +117,6 @@ function countUnreadNotifications(PDO $pdo, int $userId): int {
     }
 }
 
-function countUnreadMessages(PDO $pdo, int $userId): int {
-    try {
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM messages WHERE recipient_id = ? AND is_read = 0");
-        $stmt->execute([$userId]);
-        return (int)$stmt->fetchColumn();
-    } catch (PDOException $e) {
-        error_log("Erreur countUnreadMessages: " . $e->getMessage());
-        return 0;
-    }
-}
 
 function getUnreadNotificationsCount($pdo, $user_id) {
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0");
@@ -262,7 +256,7 @@ function startSecureSession() {
             'lifetime' => 86400, // 1 jour
             'path' => '/',
             'domain' => $_SERVER['HTTP_HOST'],
-            'secure' => true, // En production, mettre à true pour HTTPS
+            'secure' => true, 
             'httponly' => true,
             'samesite' => 'Strict'
         ]);
@@ -273,9 +267,28 @@ function startSecureSession() {
         // Régénération périodique de l'ID de session
         if (!isset($_SESSION['created'])) {
             $_SESSION['created'] = time();
-        } else if (time() - $_SESSION['created'] > 1800) { // 30 minutes
+        } else if (time() - $_SESSION['created'] > 1800) {
             session_regenerate_id(true);
             $_SESSION['created'] = time();
         }
     }
+}
+
+function countUnreadMessages($pdo, $userId) {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM messages WHERE recipient_id = ? AND lu = 0");
+    $stmt->execute([$userId]);
+    return $stmt->fetchColumn();
+}
+
+function getRecentMessages($pdo, $userId) {
+    $stmt = $pdo->prepare("
+        SELECT m.*, u.nom AS sender_nom, u.prenom AS sender_prenom
+        FROM messages m
+        JOIN users u ON m.sender_id = u.id
+        WHERE m.recipient_id = ?
+        ORDER BY m.date_envoi DESC
+        LIMIT 5
+    ");
+    $stmt->execute([$userId]);
+    return $stmt->fetchAll();
 }

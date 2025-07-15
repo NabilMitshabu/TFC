@@ -24,6 +24,15 @@ try {
     $stmt->execute([$prestataire_id]);
     $prestataire = $stmt->fetch();
 
+    // Compter les messages non lus
+    $stmt = $pdo->prepare("
+            SELECT COUNT(*) 
+            FROM messages 
+            WHERE recipient_id = ? AND lu = 0
+        ");
+    $stmt->execute([$_SESSION['user']['id']]);
+    $unreadMessages = $stmt->fetchColumn();
+
     if (!$prestataire) {
         session_destroy();
         header('Location: signInClient.php');
@@ -97,6 +106,50 @@ try {
     ");
     $stmt->execute([$prestataire_id]);
     $taches_terminees = $stmt->fetchAll();
+
+
+    // Récupération des conversations
+       $stmt = $pdo->prepare("
+    SELECT DISTINCT u.id AS client_id, u.nom AS client_nom, u.prenom AS client_prenom,
+        ANY_VALUE(c.telephone) AS telephone,
+        (
+            SELECT p.photo_profil 
+            FROM prestataires p 
+            WHERE p.user_id = u.id 
+            LIMIT 1
+        ) AS client_photo,
+        MAX(m.date_envoi) AS last_message_date
+    FROM demandes_services ds
+    JOIN services s ON ds.service_id = s.id
+    JOIN users u ON ds.user_id = u.id
+    LEFT JOIN client c ON u.id = c.user_id
+    LEFT JOIN messages m ON 
+        (m.sender_id = u.id AND m.recipient_id = :me)
+        OR (m.sender_id = :me AND m.recipient_id = u.id)
+    WHERE s.prestataire_id = :presta_id AND ds.etat IN ('Validée', 'Terminée')
+    GROUP BY u.id
+    ORDER BY last_message_date DESC
+");
+$stmt->execute([
+    'me' => $_SESSION['user']['id'],
+    'presta_id' => $prestataire_id
+]);
+$conversations = $stmt->fetchAll();
+
+function getProfileImage($prenom, $nom, $photo = null) {
+    if (!empty($photo)) {
+        return filter_var($photo, FILTER_VALIDATE_URL) ? $photo : '../uploads/' . $photo;
+    }
+
+    $initials = '';
+    if (!empty($prenom)) $initials .= substr($prenom, 0, 1);
+    if (!empty($nom)) $initials .= substr($nom, 0, 1);
+
+    return "https://ui-avatars.com/api/?name=" . urlencode($initials ?: 'U') . "&background=3b82f6&color=fff";
+}
+
+
+
 
     // Traitement du formulaire
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -221,7 +274,12 @@ try {
 
 } catch (PDOException $e) {
     error_log("Erreur PDO: " . $e->getMessage());
-    die("Erreur serveur. Veuillez réessayer plus tard.");
+    // Affichez plus de détails en développement
+    if (ini_get('display_errors')) {
+        die("Erreur serveur: " . $e->getMessage() . " dans " . $e->getFile() . " ligne " . $e->getLine());
+    } else {
+        die("Erreur serveur. Veuillez réessayer plus tard.");
+    }
 }
 ?>
 
@@ -292,10 +350,27 @@ try {
                         <span class="material-icons">calendar_today</span>
                         <span>Tâches</span>
                     </a>
+
+                    <a href="#" onclick="showTab('messagerie')" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item">
+                        <span class="material-icons">message</span>
+                        <span>Messagerie</span>
+                        <?php if (isset($unreadMessages) && $unreadMessages > 0): ?>
+                            <span class="ml-auto bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+                                <?= $unreadMessages ?>
+                            </span>
+                        <?php endif; ?>
+                    </a>
+
                     <a href="#" onclick="showTab('profil')" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item">
                         <span class="material-icons">person</span>
                         <span>Profil</span>
                     </a>
+
+                    <a href="#" onclick="showTab('services')" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item">
+                        <span class="material-icons">build</span>
+                        <span>Mes Services</span>
+                    </a>
+
 
                     <a href="../controllers/logout.php" class="flex items-center space-x-3 p-3 rounded-lg text-red-500 hover:bg-red-50 font-medium menu-item">
                         <span class="material-icons">logout</span>
@@ -489,6 +564,80 @@ try {
                 </div>
             </section>
 
+
+            <!-- Section Messagerie -->
+            <section id="messagerie" class="tab-section mb-8">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-2xl font-bold mb-4 text-gray-800">Messagerie</h2>
+                    
+                    <div class="flex flex-col md:flex-row gap-6">
+                        <!-- Liste des conversations -->
+                        <div class="md:w-1/3 border-r border-gray-200 pr-4">
+                            <div class="relative mb-4">
+                                <input type="text" placeholder="Rechercher une conversation..." class="w-full p-2 border rounded-lg pl-10">
+                                <span class="material-icons absolute left-3 top-2.5 text-gray-400">search</span>
+                            </div>
+                            
+                            <div class="space-y-2 max-h-[600px] overflow-y-auto">
+                                <?php if (!empty($conversations)): ?>
+                                    <?php foreach ($conversations as $conv): ?>
+                                        <div class="p-3 rounded-lg hover:bg-gray-50 cursor-pointer flex items-center conversation-item" 
+                                            data-client-id="<?= $conv['client_id'] ?>">
+                                            <img src="<?= getProfileImage($conv['client_prenom'] ?? '', $conv['client_nom'] ?? '', $conv['client_photo'] ?? null) ?>"
+     alt="<?= htmlspecialchars(($conv['client_prenom'] ?? '') . ' ' . ($conv['client_nom'] ?? '')) ?>"
+     class="w-10 h-10 rounded-full object-cover mr-3">
+
+                                            <div class="flex-1">
+                                                <h4 class="font-medium"><?= htmlspecialchars(($conv['client_prenom'] ?? '') . ' ' . ($conv['client_nom'] ?? '')) ?></h4>
+                                                <p class="text-sm text-gray-500 truncate">Dernier message...</p>
+                                            </div>
+                                            <?php if (!empty($conv['last_message_date'])): ?>
+                                                    <span class="text-xs text-gray-400"><?= date('d/m', strtotime($conv['last_message_date'])) ?></span>
+                                                <?php else: ?>
+                                                    <span class="text-xs text-gray-400">Aucun</span>
+                                                <?php endif; ?>
+
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <p class="text-gray-500 p-3">Aucune conversation</p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        
+                        <!-- Zone de discussion -->
+                        <div class="md:w-2/3">
+                            <div id="chat-container" class="hidden">
+                                <div class="flex items-center border-b border-gray-200 pb-3 mb-4">
+                                    <img id="current-chat-photo" src="" alt="" class="w-10 h-10 rounded-full object-cover mr-3">
+                                    <h3 id="current-chat-name" class="font-medium"></h3>
+                                </div>
+                                
+                                <div id="messages-container" class="h-[400px] overflow-y-auto mb-4 space-y-3 p-2">
+                                    <!-- Les messages seront chargés ici via AJAX -->
+                                </div>
+                                
+                                <form id="message-form" class="flex gap-2">
+                                    <input type="hidden" id="recipient-id" name="recipient_id">
+                                    <input type="text" name="message" placeholder="Écrivez un message..." 
+                                        class="flex-1 border rounded-lg p-2" required>
+                                    <button type="submit" class="bg-blue-600 text-white p-2 rounded-lg">
+                                        <span class="material-icons">send</span>
+                                    </button>
+                                </form>
+                            </div>
+                            
+                            <div id="no-chat-selected" class="flex flex-col items-center justify-center h-[400px] text-gray-500">
+                                <span class="material-icons text-4xl mb-2">forum</span>
+                                <p>Sélectionnez une conversation pour commencer à discuter</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+
             <!-- Section Profil -->
             <section id="profil" class="tab-section mb-8">
                 <div class="bg-white rounded-lg shadow p-6">
@@ -558,10 +707,108 @@ try {
                                     <?= !empty($prestataire['description']) ? 'Mettre à jour' : 'Enregistrer' ?>
                                 </button>
                             </form>
+
+                            <!-- Dans la section Profil, après la partie description -->
+                                <div class="mt-8">
+                                    <h3 class="text-lg font-semibold mb-4">Images du profil</h3>
+                                    
+                                    <!-- Formulaire d'upload -->
+                        <form id="upload-image-form" enctype="multipart/form-data" class="mb-6">
+                            <div class="flex items-center gap-4">
+                                <input type="file" name="images[]" multiple accept="image/*" class="border p-2 rounded" required>
+                                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                    Ajouter des images
+                                </button>
+                            </div>
+                        </form>
+                                    
+                                    <!-- Galerie d'images -->
+                                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                        <?php
+                                        // Récupérer les images du prestataire
+                                        $stmt = $pdo->prepare("SELECT * FROM prestataire_images WHERE prestataire_id = ? ORDER BY upload_date DESC");
+                                        $stmt->execute([$prestataire_id]);
+                                        $images = $stmt->fetchAll();
+                                        
+                                        foreach ($images as $image): ?>
+                                            <div class="relative group">
+                                                <img src="../uploads/prestataires/<?= htmlspecialchars($image['image_path']) ?>" 
+                                                    alt="Image profil prestataire" 
+                                                    class="w-full h-40 object-cover rounded-lg shadow">
+                                                <a href="../controllers/delete_prestataire_image.php?id=<?= $image['id'] ?>" 
+                                                class="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <span class="material-icons text-sm">delete</span>
+                                                </a>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    
+                                    <?php if (empty($images)): ?>
+                                        <p class="text-gray-500">Aucune image ajoutée pour le moment</p>
+                                    <?php endif; ?>
+                                </div>
                         </div>
                     </div>
                 </div>
             </section>
+
+            <section id="services" class="tab-section mb-8">
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-2xl font-bold mb-4 text-gray-800">Mes Services</h2>
+
+        <!-- Formulaire d'ajout/modification -->
+        <form method="POST" action="../controllers/service_save.php" class="space-y-4">
+            <input type="hidden" name="service_id" value="">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Nom du service</label>
+                <input type="text" name="nom" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Description</label>
+                <textarea name="description" required rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Tarif</label>
+                <input type="number" step="0.01" name="tarif" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Devise</label>
+                
+            <select name="devise" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            <option value="CDF">CDF</option>
+                            <option value="USD">USD</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Enregistrer</button>
+                </form>
+
+                <hr class="my-6">
+
+                <!-- Liste des services existants -->
+                <h3 class="text-xl font-semibold mb-2">Services existants</h3>
+                <ul class="space-y-3">
+                    <?php
+                    $stmt = $pdo->prepare("SELECT * FROM services WHERE prestataire_id = ?");
+                    $stmt->execute([$prestataire_id]);
+                    $services = $stmt->fetchAll();
+                    foreach ($services as $srv): ?>
+                        <li class="border p-3 rounded-md flex justify-between items-center">
+                            <div>
+                                <strong><?= htmlspecialchars($srv['nom'] ?? '') ?></strong><br>
+                                <small><?= htmlspecialchars($srv['description'] ?? '') ?></small><br>
+                                <span class="text-sm text-gray-600">
+                                    <?= htmlspecialchars($srv['tarif'] ?? '') ?> <?= htmlspecialchars($srv['devise'] ?? '') ?>
+                                </span>
+                            </div>
+                            <a href="modifier_service.php?id=<?= htmlspecialchars($srv['id'] ?? '') ?>" class="text-blue-600 hover:underline">Modifier</a>
+                        </li>
+
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        </section>
+
         </div>
     </main>
 
@@ -631,30 +878,112 @@ try {
                     }]
                 },
                 options: {
-    responsive: true,
-    maintainAspectRatio: false, // Ajoutez cette ligne
-    cutout: '70%',
-    plugins: {
-        legend: {
-            position: 'bottom',
-            labels: {
-                boxWidth: 12,
-                padding: 20,
-                font: {
-                    size: 20 // Réduire la taille de la police de la légende
-                }
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 12,
+                            padding: 20,
+                            font: {
+                                size: 20
+                            }
+                        }
+                    }
+            },
+            layout: {
+                padding: 5 
             }
-        }
-    },
-    layout: {
-        padding: 5 // Réduire l'espacement autour du graphique
-    }
 }
+
+
+                
             });
             
             // Set demandes tab as active by default
             showTab('accueil');
         });
+
+        // Dans la partie JavaScript du dashboard-prestataire.php
+document.addEventListener('DOMContentLoaded', function() {
+    // Gestion des conversations
+    document.querySelectorAll('.conversation-item').forEach(item => {
+        item.addEventListener('click', function() {
+            const clientId = this.dataset.clientId;
+            const clientName = this.querySelector('h4').textContent;
+            const clientPhoto = this.querySelector('img').src;
+            
+            // Mettre à jour l'interface
+            document.getElementById('current-chat-photo').src = clientPhoto;
+            document.getElementById('current-chat-name').textContent = clientName;
+            document.getElementById('recipient-id').value = clientId;
+            document.getElementById('chat-container').classList.remove('hidden');
+            document.getElementById('no-chat-selected').classList.add('hidden');
+            
+            // Charger les messages
+            loadMessages(clientId);
+        });
+    });
+    
+    // Charger les messages d'une conversation
+    function loadMessages(clientId) {
+        fetch(`../controllers/get_messages.php?recipient_id=${clientId}`)
+            .then(response => response.json())
+            .then(messages => {
+                const container = document.getElementById('messages-container');
+                container.innerHTML = '';
+                
+                messages.forEach(msg => {
+                    const isSender = msg.sender_id == <?= $_SESSION['user']['id'] ?>;
+                    const messageClass = isSender ? 'bg-blue-100 ml-auto' : 'bg-gray-100 mr-auto';
+                    
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `max-w-[70%] p-3 rounded-lg ${messageClass}`;
+                    messageDiv.innerHTML = `
+                        <p class="text-gray-800">${msg.contenu}</p>
+                        <p class="text-xs text-gray-500 mt-1 text-right">
+                            ${new Date(msg.date_envoi).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </p>
+                    `;
+                    
+                    container.appendChild(messageDiv);
+                });
+                
+                // Faire défiler vers le bas
+                container.scrollTop = container.scrollHeight;
+            });
+    }
+    
+    // Envoyer un message
+    document.getElementById('message-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        formData.append('sender_id', <?= $_SESSION['user']['id'] ?>);
+        
+        fetch('../controllers/send_message.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.reset();
+                loadMessages(document.getElementById('recipient-id').value);
+            }
+        });
+    });
+    
+    // Rafraîchir périodiquement les messages (toutes les 30 secondes)
+    setInterval(() => {
+        const recipientId = document.getElementById('recipient-id').value;
+        if (recipientId) {
+            loadMessages(recipientId);
+        }
+    }, 30000);
+});
     </script>
 </body>
 </html>

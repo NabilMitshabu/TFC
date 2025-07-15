@@ -73,6 +73,11 @@ try {
     $stmt->execute([$prestataire_id]);
     $dernieres_evaluations = $stmt->fetchAll();
 
+    // Récupérer les images du prestataire
+    $stmt = $pdo->prepare("SELECT * FROM prestataire_images WHERE prestataire_id = ? ORDER BY upload_date DESC");
+    $stmt->execute([$prestataire_id]);
+    $images = $stmt->fetchAll();
+
 } catch (PDOException $e) {
     die("Erreur de base de données: " . $e->getMessage());
 } catch (Exception $e) {
@@ -130,7 +135,7 @@ function genererEtoiles($note) {
             transition: max-height 0.5s ease-out;
         }
         .avis-container.visible {
-            max-height: 1000px;
+            max-height: 1000px; /* Ajustez cette valeur si nécessaire */
         }
         .toggle-avis-btn {
             transition: all 0.3s ease;
@@ -143,6 +148,15 @@ function genererEtoiles($note) {
         }
         .toggle-avis-btn.active i {
             transform: rotate(180deg);
+        }
+        .gallery-grid {
+            perspective: 1000px;
+        }
+        .gallery-item {
+            transition: transform 0.3s ease;
+        }
+        .gallery-item:hover {
+            transform: scale(1.05);
         }
     </style>
 </head>
@@ -298,6 +312,40 @@ function genererEtoiles($note) {
             </div>
         </div>
     </div>
+
+    <!-- Espacement entre le bloc précédent et la galerie -->
+    <div class="my-12"></div>
+    
+    <!-- Galerie d'images -->
+    <section class="mb-12">
+        <h3 class="text-xl font-semibold mb-6 text-gray-800 flex items-center">
+            <i class="fas fa-images text-blue-500 mr-2"></i> Galerie de réalisations
+        </h3>
+        
+        <?php if (!empty($images)): ?>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 gallery-grid">
+                <?php foreach ($images as $index => $image): ?>
+                    <div class="gallery-item relative rounded-xl overflow-hidden shadow-lg transform transition-all duration-500 hover:scale-105 hover:shadow-2xl"
+                         onclick="openLightbox('<?= htmlspecialchars($image['image_path']) ?>')">
+                        <img src="../uploads/prestataires/<?= htmlspecialchars($image['image_path']) ?>" 
+                             alt="Réalisation <?= $index + 1 ?> de <?= htmlspecialchars($prestataire['prenom']) ?>"
+                             class="w-full h-48 object-cover transition-opacity duration-300 hover:opacity-90"
+                             loading="lazy">
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php else: ?>
+            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-8 text-center">
+                <div class="max-w-md mx-auto">
+                    <div class="text-blue-400 mb-4">
+                        <i class="fas fa-camera-retro text-4xl"></i>
+                    </div>
+                    <h4 class="text-lg font-medium text-gray-700 mb-2">Galerie vide</h4>
+                    <p class="text-gray-500 mb-4">Ce prestataire n'a pas encore partagé ses réalisations</p>
+                </div>
+            </div>
+        <?php endif; ?>
+    </section>
 </main>
 
 <script>
@@ -318,6 +366,21 @@ function genererEtoiles($note) {
             });
         }
     });
+
+    // Lightbox functionality
+    function openLightbox(imagePath) {
+        const lightbox = document.createElement('div');
+        lightbox.className = 'fixed inset-0 bg-black/95 z-50 flex items-center justify-center';
+        lightbox.innerHTML = `
+            <div class="relative max-w-6xl w-full px-4">
+                <button onclick="this.parentElement.parentElement.remove()" class="absolute -top-16 right-0 text-white hover:text-blue-300 transition-colors">
+                    <i class="fas fa-times text-3xl"></i>
+                </button>
+                <img src="../uploads/prestataires/${imagePath}" alt="" class="lightbox-image rounded-lg shadow-xl mx-auto max-h-[80vh]">
+            </div>
+        `;
+        document.body.appendChild(lightbox);
+    }
 </script>
 
 </body>

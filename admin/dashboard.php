@@ -37,8 +37,8 @@ $stats = getRegistrationStats($pdo);
     <div class="flex h-screen">
         <!-- Sidebar -->
         <div class="w-64 bg-blue-800 text-white p-4">
-            <h1 class="text-2xl font-bold mb-8">Headstart</h1>
-            
+            <h1 class="text-2xl font-bold mb-8">ClicService</h1>
+
             <nav>
                 <ul class="space-y-2">
                     <li>
@@ -54,6 +54,12 @@ $stats = getRegistrationStats($pdo);
                     <li>
                         <a href="#" class="block py-2 px-4 hover:bg-blue-700 rounded" onclick="showServices()">
                             <i class="fas fa-concierge-bell mr-2"></i> Services
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="#" class="block py-2 px-4 hover:bg-blue-700 rounded" onclick="showUsers()">
+                            <i class="fas fa-users mr-2"></i> Utilisateurs
                         </a>
                     </li>
                     
@@ -126,14 +132,6 @@ $stats = getRegistrationStats($pdo);
                             <canvas id="registrationsChart"></canvas>
                         </div>
                     </div>
-
-                    <!-- Dernières actions -->
-                    <div class="bg-white p-6 rounded-lg shadow">
-                        <h3 class="text-xl font-bold text-blue-800 mb-4">Dernières actions</h3>
-                        <ul class="space-y-4" id="recent-actions">
-                            <!-- Rempli dynamiquement par JavaScript -->
-                        </ul>
-                    </div>
                 </div>
             </div>
 
@@ -146,6 +144,11 @@ $stats = getRegistrationStats($pdo);
             <div id="services-content" class="hidden">
                 <?php include 'services.php'; ?>
             </div>
+
+            <!-- Gestion des utilisateurs -->
+            <div id="users-content" class="hidden">
+                <?php include 'user_management.php'; ?>
+            </div>
         </div>
     </div>
 
@@ -157,20 +160,29 @@ $stats = getRegistrationStats($pdo);
             document.getElementById('dashboard-content').classList.remove('hidden');
             document.getElementById('pending-registrations-content').classList.add('hidden');
             document.getElementById('services-content').classList.add('hidden');
+            document.getElementById('users-content').classList.add('hidden');
         }
 
         function showPendingRegistrations() {
             document.getElementById('dashboard-content').classList.add('hidden');
             document.getElementById('pending-registrations-content').classList.remove('hidden');
             document.getElementById('services-content').classList.add('hidden');
+            document.getElementById('users-content').classList.add('hidden');
         }
 
         function showServices() {
             document.getElementById('dashboard-content').classList.add('hidden');
             document.getElementById('pending-registrations-content').classList.add('hidden');
             document.getElementById('services-content').classList.remove('hidden');
+            document.getElementById('users-content').classList.add('hidden');
         }
 
+        function showUsers() {
+            document.getElementById('dashboard-content').classList.add('hidden');
+            document.getElementById('pending-registrations-content').classList.add('hidden');
+            document.getElementById('services-content').classList.add('hidden');
+            document.getElementById('users-content').classList.remove('hidden');
+        }
         // Initialisation du graphique
         document.addEventListener('DOMContentLoaded', function() {
             // Graphique des inscriptions

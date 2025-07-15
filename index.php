@@ -1,26 +1,36 @@
-
 <?php
 require_once(__DIR__ . '/api/check_auth.php');
 
-// Démarrage de session et génération du token CSRF
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Générer un nouveau token CSRF s'il n'existe pas
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
+
 include 'includes/db_connect.php';
 
-// Récupération des services pour la section principale
+// Récupération des services standards
 $servicesQuery = $pdo->query("SELECT * FROM servicesacc WHERE est_actif = TRUE ORDER BY nom");
-$services = $servicesQuery->fetchAll(PDO::FETCH_ASSOC);
+$standardServices = $servicesQuery->fetchAll(PDO::FETCH_ASSOC);
+
+// Ajout du service "Autre" pour afficher les services personnalisés
+$otherService = [
+    'id' => 'custom',
+    'nom' => 'Autre',
+    'icone' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+    'est_actif' => 1
+];
+
+// Fusionner les services standards avec le service "Autre"
+$services = array_merge($standardServices, [$otherService]);
 
 // Récupération des services pour la bannière animée (5 aléatoires)
 $bannerServicesQuery = $pdo->query("SELECT nom FROM servicesacc WHERE est_actif = TRUE ORDER BY RAND() LIMIT 5");
 $bannerServices = $bannerServicesQuery->fetchAll(PDO::FETCH_ASSOC);
 ?>
+
 
 <!DOCTYPE html>
 <html lang="fr">
@@ -47,8 +57,7 @@ $bannerServices = $bannerServicesQuery->fetchAll(PDO::FETCH_ASSOC);
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans">
-  <!-- ... (header et autres sections identiques) ... -->
-     <!-- Header -->
+  <!-- Header -->
 <header class="bg-blue-600 fixed w-full top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
         <a href="/index.php" class="text-xl font-bold text-white hover:text-blue-200 transition">ClicService</a>
@@ -71,8 +80,6 @@ $bannerServices = $bannerServicesQuery->fetchAll(PDO::FETCH_ASSOC);
                 </div>
             </div>
         <?php else: ?>
-
-
                 <!-- Menu visiteur -->
                 <a href="views/signInClient.php" class="hover:text-blue-200 transition">Connexion</a>
                 <a href="views/inscription.php" class="hover:text-blue-200 transition">Inscription</a>
@@ -82,42 +89,37 @@ $bannerServices = $bannerServicesQuery->fetchAll(PDO::FETCH_ASSOC);
 </header>
 
 <!-- Section Services -->
-<section class="py-12 mt-12 bg-blue-600 relative">
-  <div class="max-w-7xl mx-auto px-4">
-    <h2 class="text-3xl text-white font-bold text-center mb-8">Nos services à domicile</h2>
+  <section class="py-12 mt-12 bg-blue-600 relative">
+    <div class="max-w-7xl mx-auto px-4">
+      <h2 class="text-3xl text-white font-bold text-center mb-8">Nos services à domicile</h2>
 
-    <div class="rounded-xl p-6 bg-blue-600 relative">
-      <!-- Boutons flèches agrandis et harmonisés -->
-      <button id="prevBtn" class="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white text-blue-600 text-2xl p-4 rounded-full shadow-md hover:bg-gray-100 hidden transition">
-        &#10094;
-      </button>
-      <button id="nextBtn" class="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white text-blue-600 text-2xl p-4 rounded-full shadow-md hover:bg-gray-100 hidden transition">
-        &#10095;
-      </button>
+      <div class="rounded-xl p-6 bg-blue-600 relative">
+        <!-- [Boutons flèches inchangés] -->
 
-      <div class="relative">
-        <div id="serviceScroll" class="flex overflow-x-auto hide-scrollbar pb-4 scroll-smooth">
-          <div class="flex space-x-6">
-            <?php foreach ($services as $service): ?>
-              <div class="flex-shrink-0 w-40">
-                <a href="/views/prestataires.php?service_id=<?= $service['id'] ?>" class="block">
-                  <div class="service-card bg-white rounded-lg border border-gray-200 p-4 text-center hover:border-blue-300">
-                    <div class="bg-blue-50 p-3 rounded-full w-14 h-14 flex items-center justify-center mx-auto mb-3">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-6 h-6 text-blue-600">
-                        <?= $service['icone'] ?>
-                      </svg>
+        <div class="relative">
+          <div id="serviceScroll" class="flex overflow-x-auto hide-scrollbar pb-4 scroll-smooth">
+            <div class="flex space-x-6">
+              <?php foreach ($services as $service): ?>
+                <div class="flex-shrink-0 w-40">
+                  <!-- Modification du lien pour "Autre" -->
+                  <a href="/views/prestataires.php?<?= $service['id'] === 'custom' ? 'show_custom=1' : 'service_id='.$service['id'] ?>" class="block">
+                    <div class="service-card bg-white rounded-lg border border-gray-200 p-4 text-center hover:border-blue-300">
+                      <div class="bg-blue-50 p-3 rounded-full w-14 h-14 flex items-center justify-center mx-auto mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-6 h-6 text-blue-600">
+                          <?= $service['icone'] ?>
+                        </svg>
+                      </div>
+                      <h4 class="font-medium text-gray-800"><?= htmlspecialchars($service['nom']) ?></h4>
                     </div>
-                    <h4 class="font-medium text-gray-800"><?= htmlspecialchars($service['nom']) ?></h4>
-                  </div>
-                </a>
-              </div>
-            <?php endforeach; ?>
+                  </a>
+                </div>
+              <?php endforeach; ?>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
  <!-- Bannière dynamique -->
 <section class="flex justify-center py-8 px-4">
@@ -138,11 +140,11 @@ $bannerServices = $bannerServicesQuery->fetchAll(PDO::FETCH_ASSOC);
   <!-- Catégories populaires -->
   <section class="py-12 bg-white">
     <div class="max-w-6xl mx-auto px-4">
-      <h3 class="text-3xl font-bold mb-10 text-center">Quelques catégories </h3>
+      <h3 class="text-3xl font-bold mb-10 text-center">Quelques catégories</h3>
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
         <?php 
-        // Prendre les 3 premiers services
-        $popularServices = array_slice($services, 0, 3); 
+        // Prendre les 3 premiers services (en excluant "Autre" pour cette section)
+        $popularServices = array_slice($standardServices, 0, 3); 
         foreach ($popularServices as $service): 
         ?>
         <div class="bg-gray-50 p-6 rounded-lg text-center shadow hover:shadow-lg transition transform hover:-translate-y-1 border border-gray-200">
@@ -151,7 +153,7 @@ $bannerServices = $bannerServicesQuery->fetchAll(PDO::FETCH_ASSOC);
             <?= $service['icone'] ?>
           </svg>
           <h4 class="font-semibold text-xl mb-2 text-gray-800"><?= htmlspecialchars($service['nom']) ?></h4>
-          <p class="text-gray-600">Des professionnels qualifiés pour vos besoins en <?= htmlspecialchars($service['nom']) ?>.</p>
+          <p class="text-gray-600">Des prestataires à domicile pour vos besoins en <?= htmlspecialchars($service['nom']) ?>.</p>
         </div>
         <?php endforeach; ?>
       </div>
@@ -268,7 +270,8 @@ $bannerServices = $bannerServicesQuery->fetchAll(PDO::FETCH_ASSOC);
   scrollContainer.addEventListener('scroll', updateButtons);
   window.addEventListener('resize', updateButtons);
   window.addEventListener('load', updateButtons);
-  // Liste des services avec leurs icônes (utilisez les icônes de Heroicons)
+  
+  // Liste des services avec leurs icônes (incluant "Autre")
   const services = [
     { name: "Plomberie", icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />' },
     { name: "Électricité", icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />' },
@@ -276,7 +279,8 @@ $bannerServices = $bannerServicesQuery->fetchAll(PDO::FETCH_ASSOC);
     { name: "Jardinage", icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />' },
     { name:'Serrurerie', icon:'<path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>'},
     { name:'Cours particuliers', icon:'<path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-5.342m0 0A50.716 50.716 0 1012 13.489a50.716 50.716 0 017.74-5.342m0 0a50.669 50.669 0 014.685 5.145"/>'},
-    { name:'Informatique', icon:'<path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25"/>'}
+    { name:'Informatique', icon:'<path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25"/>'},
+    { name:'Autre', icon:'<path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'}
   ];
 
   let currentService = 0;
@@ -299,8 +303,6 @@ $bannerServices = $bannerServicesQuery->fetchAll(PDO::FETCH_ASSOC);
   // Démarrer la rotation (toutes les 3 secondes)
   rotateServices(); // Affiche immédiatement le premier service
   setInterval(rotateServices, 3000);
-
-
 </script>
 
 </body>

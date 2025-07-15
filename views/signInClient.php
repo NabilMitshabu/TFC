@@ -79,27 +79,7 @@
                 </button>
             </form>
 
-            <div class="mt-6">
-                <div class="relative">
-                    <div class="absolute inset-0 flex items-center">
-                        <div class="w-full border-t border-gray-300"></div>
-                    </div>
-                    <div class="relative flex justify-center text-sm">
-                        <span class="px-2 bg-white text-gray-500">Ou continuer avec</span>
-                    </div>
-                </div>
-
-                <div class="mt-6 grid grid-cols-2 gap-3">
-                    <a href="#" class="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
-                        <img class="h-5 w-5" src="https://www.svgrepo.com/show/355037/google.svg" alt="Google">
-                        <span class="ml-2">Google</span>
-                    </a>
-                    <a href="#" class="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
-                        <img class="h-5 w-5" src="https://www.svgrepo.com/show/448234/facebook.svg" alt="Facebook">
-                        <span class="ml-2">Facebook</span>
-                    </a>
-                </div>
-            </div>
+        
         </div>
 
         <!-- Right side - Welcome -->
@@ -107,7 +87,7 @@
             <div class="text-center">
                 <h2 class="text-4xl font-bold mb-4">Bonjour, Ami !</h2>
                 <p class="text-xl mb-8 opacity-90">Commencez une incroyable aventure<br>et amusez-vous avec nous</p>
-                <a href="/inscription.php" class="px-8 py-3 bg-white text-blue-600 font-bold rounded-lg hover:bg-gray-100 transition transform hover:scale-105 block">
+                <a href="/views/signUpPresta.php" class="px-8 py-3 bg-white text-blue-600 font-bold rounded-lg hover:bg-gray-100 transition transform hover:scale-105 block">
                     S'INSCRIRE
                 </a>
             </div>

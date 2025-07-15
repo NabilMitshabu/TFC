@@ -56,18 +56,10 @@ if (!empty($_SESSION['user']['id'])) {
                 
                 <?php if (!empty($_SESSION['user'])): ?>
                     <!-- Notifications -->
-                    <div class="relative group">
-                        <button id="notifications-btn" class="flex items-center text-gray-600 hover:text-blue-500 transition relative">
-                            <span class="material-icons">notifications</span>
-                            <?php if ($unreadCount > 0): ?>
-                                <span class="absolute notification-badge bg-red-500 text-white rounded-full flex items-center justify-center">
-                                    <?= $unreadCount ?>
-                                </span>
-                            <?php endif; ?>
-                        </button>
+                        <div class="relative group">
                         
                         <!-- Panel des notifications -->
-                        <div class="hidden absolute notification-panel bg-white rounded-md shadow-lg py-1 z-50 mt-2 group-hover:block">
+                        <!-- <div class="hidden absolute notification-panel bg-white rounded-md shadow-lg py-1 z-50 mt-2 group-hover:block">
                             <div class="px-4 py-2 border-b border-gray-200">
                                 <h3 class="text-sm font-medium">Notifications</h3>
                             </div>
@@ -94,21 +86,28 @@ if (!empty($_SESSION['user']['id'])) {
                             <div class="px-4 py-2 border-t border-gray-200 text-center">
                                 <a href="notifications.php" class="text-xs text-blue-600 hover:underline">Voir toutes les notifications</a>
                             </div>
-                        </div>
+                        </div> -->
                     </div>
 
                     <!-- Menu utilisateur -->
                     <div class="relative group">
                         <button class="flex items-center space-x-2 focus:outline-none">
                             <span class="hidden md:inline">
-                                <?= htmlspecialchars($_SESSION['user']['prenom'] ?? $_SESSION['user']['nom']) ?>
+                                <?php 
+                                    $prenom = $_SESSION['user']['prenom'] ?? null;
+                                    $nom = $_SESSION['user']['nom'] ?? null;
+                                    $affichageNom = $prenom ?: ($nom ?: 'Profil');
+                                    echo htmlspecialchars($affichageNom);
+                                    ?>
+
                             </span>
-                            <img src="https://ui-avatars.com/api/?name=<?= 
-                                urlencode(
-                                    ($_SESSION['user']['prenom'] ?? '') . '+' . $_SESSION['user']['nom']
-                                ) ?>&background=3b82f6&color=fff" 
-                                 alt="Profil" class="w-8 h-8 rounded-full">
-                        </button>
+                           <img src="https://ui-avatars.com/api/?name=<?= 
+                            urlencode(
+                                (!empty($_SESSION['user']['prenom']) ? substr($_SESSION['user']['prenom'], 0, 1) : '') . 
+                                (!empty($_SESSION['user']['nom']) ? substr($_SESSION['user']['nom'], 0, 1) : 'U')
+                            ) ?>&background=3b82f6&color=fff" 
+                            alt="Profil" class="w-8 h-8 rounded-full">
+                                                            </button>
                         <div class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 group-hover:block">
                             <a href="<?= ($_SESSION['user']['role'] ?? 'client') === 'prestataire' ? 'dashboard-prestataire.php' : 'dashboard-client.php' ?>" 
                                class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">

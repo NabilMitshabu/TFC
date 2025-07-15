@@ -119,13 +119,6 @@ $pastEvaluations = getPastEvaluations($pdo, $_SESSION['user']['id']);
                         <span class="material-icons">notifications</span>
                         <span>Notifications</span>
                     </a>
-                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item">
-                        <span class="material-icons">message</span>
-                        <span>Messages</span>
-                        <?php if ($unreadMessages > 0): ?>
-                            <span class="ml-auto bg-blue-500 text-white text-xs px-2 py-1 rounded-full"><?= $unreadMessages ?></span>
-                        <?php endif; ?>
-                    </a>
                     <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item favorites-link">
                         <span class="material-icons">favorite</span>
                         <span>Mes Favoris</span>
@@ -133,6 +126,15 @@ $pastEvaluations = getPastEvaluations($pdo, $_SESSION['user']['id']);
                             <?= countUserFavorites($pdo, $_SESSION['user']['id']) ?>
                         </span>
                     </a>
+                    
+                    <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium menu-item messages-link">
+                        <span class="material-icons">message</span>
+                        <span>Messagerie</span>
+                        <?php if ($unreadMessages > 0): ?>
+                            <span class="ml-auto bg-blue-500 text-white text-xs px-2 py-1 rounded-full"><?= $unreadMessages ?></span>
+                        <?php endif; ?>
+                    </a>
+
                     <a href="../controllers/logout.php" class="flex items-center space-x-3 p-3 rounded-lg text-red-500 hover:bg-red-50 font-medium menu-item">
                         <span class="material-icons">logout</span>
                         <span>Déconnexion</span>
@@ -316,7 +318,9 @@ $pastEvaluations = getPastEvaluations($pdo, $_SESSION['user']['id']);
                                                       <?= $favorite['type_prestataire'] === 'entreprise' 
                                                           ? 'bg-blue-100 text-blue-800' 
                                                           : 'bg-green-100 text-green-800' ?>">
-                                                    <?= $favorite['type_prestataire'] === 'entreprise' ? 'Entreprise' : 'Indépendant' ?>
+                                                         
+                                                    <?= $unreadMessages = isset($unreadMessages) ? $unreadMessages : 0;
+                                                    $favorite['type_prestataire'] === 'entreprise' ? 'Entreprise' : 'Indépendant' ?>
                                                 </span>
                                             </div>
                                             
@@ -377,132 +381,283 @@ $pastEvaluations = getPastEvaluations($pdo, $_SESSION['user']['id']);
                     </div>
                 </div>
             </div>
+
+
+            <!-- Section Messagerie -->
+           <div id="messages-content" class="content-section hidden-section">
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-800">Messagerie</h2>
+                
+                <div class="flex flex-col md:flex-row gap-6">
+                    <!-- Liste des conversations -->
+                    <div class="md:w-1/3 border-r border-gray-200 pr-4">
+                        <div class="relative mb-4">
+                            <input type="text" placeholder="Rechercher une conversation..." class="w-full p-2 border rounded-lg pl-10">
+                            <span class="material-icons absolute left-3 top-2.5 text-gray-400">search</span>
+                        </div>
+                        
+                        <div class="space-y-2 max-h-[600px] overflow-y-auto" id="conversations-list">
+                            <!-- Les conversations seront chargées ici via AJAX -->
+                        </div>
+                    </div>
+                    
+                    <!-- Zone de discussion -->
+                    <div class="md:w-2/3">
+                        <div id="chat-container" class="hidden">
+                            <div class="flex items-center border-b border-gray-200 pb-3 mb-4">
+                                <img id="current-chat-photo" src="" alt="" class="w-10 h-10 rounded-full object-cover mr-3">
+                                <h3 id="current-chat-name" class="font-medium"></h3>
+                            </div>
+                            
+                            <div id="messages-container" class="h-[400px] overflow-y-auto mb-4 space-y-3 p-2">
+                                <!-- Les messages seront chargés ici via AJAX -->
+                            </div>
+                            
+                            <form id="message-form" class="flex gap-2">
+                                <input type="hidden" id="recipient-id" name="recipient_id">
+                                <input type="text" name="message" placeholder="Écrivez un message..." 
+                                    class="flex-1 border rounded-lg p-2" required>
+                                <button type="submit" class="bg-blue-600 text-white p-2 rounded-lg">
+                                    <span class="material-icons">send</span>
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <div id="no-chat-selected" class="flex flex-col items-center justify-center h-[400px] text-gray-500">
+                            <span class="material-icons text-4xl mb-2">forum</span>
+                            <p>Sélectionnez une conversation pour commencer à discuter</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         </div>
     </main>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
-            
-            // Afficher le tableau de bord par défaut
-            document.getElementById('dashboard-content').classList.remove('hidden-section');
-            
-            // Gestion du clic sur Tableau de bord
-            document.querySelector('.dashboard-link').addEventListener('click', function(e) {
-                e.preventDefault();
-                document.getElementById('dashboard-content').classList.remove('hidden-section');
-                document.getElementById('favorites-content').classList.add('hidden-section');
-                
-                // Mettre à jour l'état actif dans la sidebar
-                updateActiveLink(this);
-            });
-            
-            // Gestion du clic sur Favoris
-            document.querySelector('.favorites-link').addEventListener('click', function(e) {
-                e.preventDefault();
-                document.getElementById('favorites-content').classList.remove('hidden-section');
-                document.getElementById('dashboard-content').classList.add('hidden-section');
-                
-                // Mettre à jour l'état actif dans la sidebar
-                updateActiveLink(this);
-            });
-            
-            function updateActiveLink(activeLink) {
-                document.querySelectorAll('.menu-item').forEach(item => {
-                    item.classList.remove('bg-blue-50', 'text-blue-600');
-                    item.classList.add('text-gray-600', 'hover:bg-gray-50');
-                });
-                activeLink.classList.add('bg-blue-50', 'text-blue-600');
-                activeLink.classList.remove('text-gray-600', 'hover:bg-gray-50');
-            }
-            
-            // Gestion des boutons favoris
-            document.addEventListener('click', async function(e) {
-                if (e.target.closest('.favorite-btn')) {
-                    const btn = e.target.closest('.favorite-btn');
-                    const prestataireId = btn.dataset.prestataireId;
-                    const card = btn.closest('.favorite-card');
-                    const heartIcon = btn.querySelector('i');
-                    
-                    try {
-                        const response = await fetch('controllers/favorites.php', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': csrfToken
-                            },
-                            body: JSON.stringify({ prestataire_id: prestataireId })
-                        });
-                        
-                        const data = await response.json();
-                        
-                        if (data.status === 'success') {
-                            // Animation
-                            heartIcon.classList.add('animate-ping');
-                            setTimeout(() => heartIcon.classList.remove('animate-ping'), 500);
-                            
-                            // Mise à jour du compteur
-                            document.getElementById('favorite-count').textContent = data.total_favorites;
-                            document.getElementById('sidebar-favorite-count').textContent = data.total_favorites;
-                            
-                            // Si suppression, enlever la carte
-                            if (data.action === 'removed' && card) {
-                                card.classList.add('opacity-0', 'transition-opacity', 'duration-300');
-                                setTimeout(() => card.remove(), 300);
-                                
-                                // Si plus de favoris, afficher message
-                                if (data.total_favorites === 0) {
-                                    document.getElementById('favorites-container').innerHTML = `
-                                        <div class="col-span-full text-center py-8">
-                                            <i class="far fa-heart text-gray-300 text-4xl mb-3"></i>
-                                            <p class="text-gray-500">Vous n'avez aucun prestataire favori</p>
-                                            <p class="text-sm text-gray-400 mt-1">Cliquez sur ♡ pour ajouter des prestataires à vos favoris</p>
-                                        </div>
-                                    `;
-                                }
-                            }
-                        }
-                    } catch (error) {
-                        console.error('Erreur:', error);
-                        alert('Une erreur est survenue');
-                    }
-                }
-            });
-            
-            // Actualisation des favoris
-            document.getElementById('refresh-favorites')?.addEventListener('click', async function() {
-                try {
-                    const response = await fetch('controllers/favorites.php', {
-                        headers: { 'X-CSRF-TOKEN': csrfToken }
-                    });
-                    const data = await response.json();
-                    
-                    if (data.status === 'success') {
-                        location.reload();
-                    }
-                } catch (error) {
-                    console.error('Erreur:', error);
-                }
-            });
+  <script>
+document.addEventListener('DOMContentLoaded', function () {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+    const userId = <?= json_encode($_SESSION['user']['id']) ?>;
 
-            // Gestion des notifications
-            document.getElementById('show-notifications')?.addEventListener('click', function(event) {
-                event.preventDefault();
-                fetch('notifications.php')
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.text();
-                    })
-                    .then(data => {
-                        document.getElementById('notifications-content').innerHTML = data;
-                    })
-                    .catch(error => {
-                        console.error('Erreur lors du chargement des notifications:', error);
-                    });
-            });
+    // -- Affichage par défaut
+    document.getElementById('dashboard-content').classList.remove('hidden-section');
+
+    // -- Onglets (Tableau de bord / Favoris / Messagerie)
+    document.querySelector('.dashboard-link')?.addEventListener('click', function (e) {
+        e.preventDefault();
+        toggleSections('dashboard');
+        updateActiveLink(this);
+    });
+
+    document.querySelector('.favorites-link')?.addEventListener('click', function (e) {
+        e.preventDefault();
+        toggleSections('favorites');
+        updateActiveLink(this);
+    });
+
+    document.querySelector('.messages-link')?.addEventListener('click', function (e) {
+        e.preventDefault();
+        toggleSections('messages');
+        updateActiveLink(this);
+        loadConversations();
+    });
+
+    function toggleSections(section) {
+        document.getElementById('dashboard-content')?.classList.add('hidden-section');
+        document.getElementById('favorites-content')?.classList.add('hidden-section');
+        document.getElementById('messages-content')?.classList.add('hidden-section');
+
+        document.getElementById(section + '-content')?.classList.remove('hidden-section');
+    }
+
+    function updateActiveLink(activeLink) {
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.classList.remove('bg-blue-50', 'text-blue-600');
+            item.classList.add('text-gray-600', 'hover:bg-gray-50');
         });
-    </script>
+        activeLink.classList.add('bg-blue-50', 'text-blue-600');
+        activeLink.classList.remove('text-gray-600', 'hover:bg-gray-50');
+    }
+
+    // -- Gestion des favoris
+    document.addEventListener('click', async function (e) {
+        if (e.target.closest('.favorite-btn')) {
+            const btn = e.target.closest('.favorite-btn');
+            const prestataireId = btn.dataset.prestataireId;
+            const card = btn.closest('.favorite-card');
+            const heartIcon = btn.querySelector('i');
+
+            try {
+                const response = await fetch('controllers/favorites.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: JSON.stringify({ prestataire_id: prestataireId })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    heartIcon.classList.add('animate-ping');
+                    setTimeout(() => heartIcon.classList.remove('animate-ping'), 500);
+
+                    document.getElementById('favorite-count').textContent = data.total_favorites;
+                    document.getElementById('sidebar-favorite-count').textContent = data.total_favorites;
+
+                    if (data.action === 'removed' && card) {
+                        card.classList.add('opacity-0', 'transition-opacity', 'duration-300');
+                        setTimeout(() => card.remove(), 300);
+
+                        if (data.total_favorites === 0) {
+                            document.getElementById('favorites-container').innerHTML = `
+                                <div class="col-span-full text-center py-8">
+                                    <i class="far fa-heart text-gray-300 text-4xl mb-3"></i>
+                                    <p class="text-gray-500">Vous n'avez aucun prestataire favori</p>
+                                    <p class="text-sm text-gray-400 mt-1">Cliquez sur ♡ pour ajouter des prestataires à vos favoris</p>
+                                </div>
+                            `;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Une erreur est survenue');
+            }
+        }
+    });
+
+    // -- Actualisation des favoris
+    document.getElementById('refresh-favorites')?.addEventListener('click', async function () {
+        try {
+            const response = await fetch('controllers/favorites.php', {
+                headers: { 'X-CSRF-TOKEN': csrfToken }
+            });
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                location.reload();
+            }
+        } catch (error) {
+            console.error('Erreur:', error);
+        }
+    });
+
+    // -- Notifications
+    document.getElementById('show-notifications')?.addEventListener('click', function (event) {
+        event.preventDefault();
+        fetch('notifications.php')
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById('notifications-content').innerHTML = data;
+            })
+            .catch(error => {
+                console.error('Erreur lors du chargement des notifications:', error);
+            });
+    });
+
+    // -- Chargement des conversations
+    function loadConversations() {
+        fetch('../controllers/get_conversations.php')
+            .then(response => response.json())
+            .then(conversations => {
+                const container = document.getElementById('conversations-list');
+                container.innerHTML = '';
+
+                if (!conversations.length) {
+                    container.innerHTML = '<p class="text-gray-500 p-3">Aucune conversation</p>';
+                    return;
+                }
+
+                conversations.forEach(conv => {
+                    const nom = `${conv.contact_prenom} ${conv.contact_nom}`;
+                    const photo = conv.contact_photo || 'https://cdn-icons-png.flaticon.com/512/219/219969.png';
+
+                    const convItem = document.createElement('div');
+                    convItem.className = 'p-3 rounded-lg hover:bg-gray-50 cursor-pointer flex items-center conversation-item';
+                    convItem.dataset.prestataireId = conv.contact_id;
+
+                    convItem.innerHTML = `
+                        <img src="${photo}" alt="${nom}" class="w-10 h-10 rounded-full object-cover mr-3">
+                        <div class="flex-1">
+                            <h4 class="font-medium">${nom}</h4>
+                            <p class="text-sm text-gray-500 truncate">${conv.last_message || ''}</p>
+                        </div>
+                        ${conv.unread_count > 0
+                            ? `<span class="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">${conv.unread_count}</span>`
+                            : `<span class="text-xs text-gray-400">${new Date(conv.last_message_date).toLocaleDateString()}</span>`}
+                    `;
+
+                    convItem.addEventListener('click', function () {
+                        document.getElementById('current-chat-photo').src = photo;
+                        document.getElementById('current-chat-name').textContent = nom;
+                        document.getElementById('recipient-id').value = conv.contact_id;
+
+                        document.getElementById('chat-container').classList.remove('hidden');
+                        document.getElementById('no-chat-selected').classList.add('hidden');
+
+                        loadMessages(conv.contact_id);
+                    });
+
+                    container.appendChild(convItem);
+                });
+            })
+            .catch(err => {
+                console.error(err);
+                document.getElementById('conversations-list').innerHTML = '<p class="text-red-500 p-3">Erreur de chargement</p>';
+            });
+    }
+
+    // -- Charger les messages
+    function loadMessages(prestaId) {
+        fetch(`../controllers/get_messages.php?recipient_id=${prestaId}`)
+            .then(response => response.json())
+            .then(messages => {
+                const container = document.getElementById('messages-container');
+                container.innerHTML = '';
+
+                messages.forEach(msg => {
+                    const isSender = msg.sender_id == userId;
+                    const messageClass = isSender ? 'bg-blue-100 ml-auto' : 'bg-gray-100 mr-auto';
+
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `max-w-[70%] p-3 rounded-lg ${messageClass}`;
+                    messageDiv.innerHTML = `
+                        <p class="text-gray-800">${msg.contenu}</p>
+                        <p class="text-xs text-gray-500 mt-1 text-right">
+                            ${new Date(msg.date_envoi).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                    `;
+
+                    container.appendChild(messageDiv);
+                });
+
+                container.scrollTop = container.scrollHeight;
+            });
+    }
+
+    // -- Envoi message
+    document.getElementById('message-form')?.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+        formData.append('sender_id', userId);
+
+        const response = await fetch('../controllers/send_message.php', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            this.reset();
+            loadMessages(document.getElementById('recipient-id').value);
+            loadConversations();
+        }
+    });
+});
+</script>
+
 </body>
 </html>
